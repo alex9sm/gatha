@@ -1,0 +1,11 @@
+.vs/
+.vscode/
+*.VC.db
+*.VC.opendb
+Debug/
+Release/
+x64/
+x86/
+*.obj
+*.pdb
+*.exe
