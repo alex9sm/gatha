@@ -9,5 +9,7 @@ x86/
 *.obj
 *.pdb
 *.exe
-.claude
+.claude/
 *.vcxproj
+*.vcxproj.filters
+*.vcxproj.user
