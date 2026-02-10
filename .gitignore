@@ -9,3 +9,5 @@ x86/
 *.obj
 *.pdb
 *.exe
+.claude
+*.vcxproj
