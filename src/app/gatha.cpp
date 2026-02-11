@@ -1,5 +1,6 @@
 #include "gatha.hpp"
 #include "../core/types.hpp"
+#include "../core/memory.hpp"
 
 namespace gatha {
 
@@ -21,6 +22,7 @@ namespace gatha {
 
 	void shutdown() {
 		//TODO: free everything
+		
 	}
  
 }
