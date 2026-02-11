@@ -1,9 +1,11 @@
 #include "gatha.hpp"
+#include "../core/types.hpp"
 
 namespace gatha {
 
 	bool init() {
 		//TODO: init vulkan
+
 		return true;
 	}
 

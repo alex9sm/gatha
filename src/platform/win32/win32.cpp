@@ -1,6 +1,5 @@
 #include "win32.hpp"
 #include "../../app/gatha.hpp"
-//#include <profileapi.h>
 
 namespace {
 
@@ -90,7 +89,7 @@ namespace platform {
             return -1;
         }
 
-        // Main loop
+        // main loop
         while (running) {
 
             internal::process_messages();
