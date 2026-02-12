@@ -3,7 +3,7 @@
 #include "types.hpp"
 #include "string.hpp"
 
-extern "C" void OutputDebugStringA(const char* str);
+extern "C" __declspec(dllimport) void __stdcall OutputDebugStringA(const char* str);
 
 namespace log {
 

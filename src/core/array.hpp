@@ -23,7 +23,7 @@ namespace arr {
 	}
 
 	template<typename T>
-	Array<T> array_destroy(Array<T>* arr) {
+	void array_destroy(Array<T>* arr) {
 
 		if (arr->data) {
 			memory::free(arr->data);

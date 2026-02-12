@@ -1,4 +1,5 @@
 #include "win32.hpp"
+#include "../../core/types.hpp"
 #include "../../app/gatha.hpp"
 
 namespace {
@@ -112,6 +113,13 @@ namespace platform {
         return static_cast<void*>(hWnd);
     }
 
+    void get_paint_field_size(u32* width, u32* height) {
+        RECT rect;
+        GetClientRect(hWnd, &rect);
+        *width = static_cast<u32>(rect.right - rect.left);
+        *height = static_cast<u32>(rect.bottom - rect.top);
+    }
+
 }
 
 int APIENTRY wWinMain(
@@ -177,7 +185,7 @@ static bool create_main_window(HINSTANCE hInstance, int nCmdShow) {
 static LRESULT CALLBACK window_proc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) {
 
     switch (message) {
-
+    
     case WM_COMMAND: {
         int wmId = LOWORD(wParam);
         switch (wmId) {
