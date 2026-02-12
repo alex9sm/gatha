@@ -84,7 +84,7 @@ namespace platform {
 
     int run() {
 
-        if (!gatha::init()) {
+        if (!init()) {
             internal::shutdown();
             return -1;
         }
@@ -94,11 +94,11 @@ namespace platform {
 
             internal::process_messages();
             if (!running) break;
-            gatha::update();
-            gatha::render();
+            update();
+            render();
         }
 
-        gatha::shutdown();
+        shutdown();
         internal::shutdown();
 
         return 0;
