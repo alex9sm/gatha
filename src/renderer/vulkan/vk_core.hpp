@@ -1,3 +1,5 @@
+/*
+
 #pragma once
 
 #include "../../core/types.hpp"
@@ -10,7 +12,7 @@
 namespace renderer::vulkan {
 
 	struct VulkanContext {
-		
+
 		VkInstance instance;
 		VkPhysicalDevice physicalDevice;
 		VkSurfaceKHR surface;
@@ -39,4 +41,4 @@ namespace renderer::vulkan {
 	bool init(void* native_window_handle, u32 width, u32 height);
 	void shutdown();
 
-}
+} */

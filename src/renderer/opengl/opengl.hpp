@@ -1,0 +1,132 @@
+#pragma once
+
+#include "../../core/types.hpp"
+
+namespace opengl {
+
+	using GLenum = u32;
+	using GLuint = u32;
+	using GLint = i32;
+	using GLsizei = i32;
+	using GLbitfield = u32;
+	using GLfloat = f32;
+	using GLclampf = f32;
+	using GLchar = char;
+	using GLboolean = u8;
+	using GLsizeiptr = isize;
+	using GLintptr = isize;
+	using GLsync = struct __GLsync*;
+	using GLuint64 = u64;
+
+	constexpr GLenum GL_TRUE = 1;
+	constexpr GLenum GL_FALSE = 0;
+	constexpr GLenum GL_COLOR_BUFFER_BIT = 0x00004000;
+	constexpr GLenum GL_DEPTH_BUFFER_BIT = 0x00000100;
+	constexpr GLenum GL_TRIANGLES = 0x0004;
+	constexpr GLenum GL_ARRAY_BUFFER = 0x8892;
+	constexpr GLenum GL_ELEMENT_ARRAY_BUFFER = 0x8893;
+	constexpr GLenum GL_STATIC_DRAW = 0x88E4;
+	constexpr GLenum GL_DYNAMIC_DRAW = 0x88E8;
+	constexpr GLenum GL_STREAM_DRAW = 0x88E0;
+	constexpr GLenum GL_FLOAT = 0x1406;
+	constexpr GLenum GL_UNSIGNED_INT = 0x1405;
+	constexpr GLenum GL_VERTEX_SHADER = 0x8B31;
+	constexpr GLenum GL_FRAGMENT_SHADER = 0x8B30;
+	constexpr GLenum GL_COMPILE_STATUS = 0x8B81;
+	constexpr GLenum GL_LINK_STATUS = 0x8B82;
+	constexpr GLenum GL_MAP_WRITE_BIT = 0x0002;
+	constexpr GLenum GL_MAP_PERSISTENT_BIT = 0x0040;
+	constexpr GLenum GL_MAP_COHERENT_BIT = 0x0080;
+	constexpr GLenum GL_DYNAMIC_STORAGE_BIT = 0x0100;
+	constexpr GLenum GL_SHADER_STORAGE_BUFFER = 0x90D2;
+	constexpr GLenum GL_DRAW_INDIRECT_BUFFER = 0x8F3F;
+	constexpr GLenum GL_SYNC_GPU_COMMANDS_COMPLETE = 0x9117;
+	constexpr GLenum GL_ALREADY_SIGNALED = 0x911A;
+	constexpr GLenum GL_CONDITION_SATISFIED = 0x911C;
+	constexpr GLenum GL_TIMEOUT_EXPIRED = 0x911B;
+	constexpr GLenum GL_WAIT_FAILED = 0x911D;
+	constexpr GLuint64 GL_TIMEOUT_IGNORED = 0xFFFFFFFFFFFFFFFFull;
+	constexpr GLenum GL_DEPTH_TEST = 0x0B71;
+
+	using PFNGLCLEARPROC = void (*)(GLbitfield mask);
+	using PFNGLCLEARCOLORPROC = void (*)(GLclampf r, GLclampf g, GLclampf b, GLclampf a);
+	using PFNGLVIEWPORTPROC = void (*)(GLint x, GLint y, GLsizei w, GLsizei h);
+	using PFNGLCREATEBUFFERSPROC = void (*)(GLsizei n, GLuint* buffers);
+	using PFNGLNAMEDBUFFERSTORAGEPROC = void (*)(GLuint buffer, GLsizeiptr size, const void* data, GLbitfield flags);
+	using PFNGLMAPNAMEDBUFFERRANGEPROC = void* (*)(GLuint buffer, GLintptr offset, GLsizeiptr length, GLbitfield access);
+	using PFNGLDELETEBUFFERSPROC = void (*)(GLsizei n, const GLuint* buffers);
+	using PFNGLBINDBUFFERBASEPROC = void (*)(GLenum target, GLuint index, GLuint buffer);
+	using PFNGLCREATEVERTEXARRAYSPROC = void (*)(GLsizei n, GLuint* arrays);
+	using PFNGLDELETEVERTEXARRAYSPROC = void (*)(GLsizei n, const GLuint* arrays);
+	using PFNGLBINDVERTEXARRAYPROC = void (*)(GLuint array);
+	using PFNGLVERTEXARRAYVERTEXBUFFERPROC = void (*)(GLuint vaobj, GLuint bindingindex, GLuint buffer, GLintptr offset, GLsizei stride);
+	using PFNGLVERTEXARRAYATTRIBFORMATPROC = void (*)(GLuint vaobj, GLuint attribindex, GLint size, GLenum type, GLboolean normalized, GLuint relativeoffset);
+	using PFNGLVERTEXARRAYATTRIBBINDINGPROC = void (*)(GLuint vaobj, GLuint attribindex, GLuint bindingindex);
+	using PFNGLENABLEVERTEXARRAYATTRIBPROC = void (*)(GLuint vaobj, GLuint index);
+	using PFNGLVERTEXARRAYELEMENTBUFFERPROC = void (*)(GLuint vaobj, GLuint buffer);
+	using PFNGLCREATESHADERPROC = GLuint(*)(GLenum type);
+	using PFNGLSHADERSOURCEPROC = void (*)(GLuint shader, GLsizei count, const GLchar** string, const GLint* length);
+	using PFNGLCOMPILESHADERPROC = void (*)(GLuint shader);
+	using PFNGLGETSHADERIVPROC = void (*)(GLuint shader, GLenum pname, GLint* params);
+	using PFNGLGETSHADERINFOLOGPROC = void (*)(GLuint shader, GLsizei maxLength, GLsizei* length, GLchar* infoLog);
+	using PFNGLDELETESHADERPROC = void (*)(GLuint shader);
+	using PFNGLCREATEPROGRAMPROC = GLuint(*)();
+	using PFNGLATTACHSHADERPROC = void (*)(GLuint program, GLuint shader);
+	using PFNGLLINKPROGRAMPROC = void (*)(GLuint program);
+	using PFNGLGETPROGRAMIVPROC = void (*)(GLuint program, GLenum pname, GLint* params);
+	using PFNGLGETPROGRAMINFOLOGPROC = void (*)(GLuint program, GLsizei maxLength, GLsizei* length, GLchar* infoLog);
+	using PFNGLUSEPROGRAMPROC = void (*)(GLuint program);
+	using PFNGLDELETEPROGRAMPROC = void (*)(GLuint program);
+	using PFNGLDRAWARRAYSINSTANCEDPROC = void (*)(GLenum mode, GLint first, GLsizei count, GLsizei instancecount);
+	using PFNGLDRAWELEMENTSINSTANCEDPROC = void (*)(GLenum mode, GLsizei count, GLenum type, const void* indices, GLsizei instancecount);
+	using PFNGLMULTIDRAWELEMENTSINDIRECTPROC = void (*)(GLenum mode, GLenum type, const void* indirect, GLsizei drawcount, GLsizei stride);
+	using PFNGLDRAWELEMENTSINDIRECTPROC = void (*)(GLenum mode, GLenum type, const void* indirect);
+	using PFNGLFENCESYNCPROC = GLsync(*)(GLenum condition, GLbitfield flags);
+	using PFNGLCLIENTWAITSYNCPROC = GLenum(*)(GLsync sync, GLbitfield flags, GLuint64 timeout);
+	using PFNGLDELETESYNCPROC = void (*)(GLsync sync);
+	using PFNGLENABLEPROC = void (*)(GLenum cap);
+
+	extern PFNGLCLEARPROC              glClear;
+	extern PFNGLCLEARCOLORPROC         glClearColor;
+	extern PFNGLVIEWPORTPROC           glViewport;
+	extern PFNGLCREATEBUFFERSPROC      glCreateBuffers;
+	extern PFNGLNAMEDBUFFERSTORAGEPROC glNamedBufferStorage;
+	extern PFNGLMAPNAMEDBUFFERRANGEPROC glMapNamedBufferRange;
+	extern PFNGLDELETEBUFFERSPROC      glDeleteBuffers;
+	extern PFNGLBINDBUFFERBASEPROC     glBindBufferBase;
+	extern PFNGLCREATEVERTEXARRAYSPROC       glCreateVertexArrays;
+	extern PFNGLDELETEVERTEXARRAYSPROC       glDeleteVertexArrays;
+	extern PFNGLBINDVERTEXARRAYPROC          glBindVertexArray;
+	extern PFNGLVERTEXARRAYVERTEXBUFFERPROC  glVertexArrayVertexBuffer;
+	extern PFNGLVERTEXARRAYATTRIBFORMATPROC  glVertexArrayAttribFormat;
+	extern PFNGLVERTEXARRAYATTRIBBINDINGPROC glVertexArrayAttribBinding;
+	extern PFNGLENABLEVERTEXARRAYATTRIBPROC  glEnableVertexArrayAttrib;
+	extern PFNGLVERTEXARRAYELEMENTBUFFERPROC glVertexArrayElementBuffer;
+	extern PFNGLCREATESHADERPROC       glCreateShader;
+	extern PFNGLSHADERSOURCEPROC       glShaderSource;
+	extern PFNGLCOMPILESHADERPROC      glCompileShader;
+	extern PFNGLGETSHADERIVPROC        glGetShaderiv;
+	extern PFNGLGETSHADERINFOLOGPROC   glGetShaderInfoLog;
+	extern PFNGLDELETESHADERPROC       glDeleteShader;
+	extern PFNGLCREATEPROGRAMPROC      glCreateProgram;
+	extern PFNGLATTACHSHADERPROC       glAttachShader;
+	extern PFNGLLINKPROGRAMPROC        glLinkProgram;
+	extern PFNGLGETPROGRAMIVPROC       glGetProgramiv;
+	extern PFNGLGETPROGRAMINFOLOGPROC  glGetProgramInfoLog;
+	extern PFNGLUSEPROGRAMPROC         glUseProgram;
+	extern PFNGLDELETEPROGRAMPROC      glDeleteProgram;
+	extern PFNGLDRAWARRAYSINSTANCEDPROC       glDrawArraysInstanced;
+	extern PFNGLDRAWELEMENTSINSTANCEDPROC     glDrawElementsInstanced;
+	extern PFNGLMULTIDRAWELEMENTSINDIRECTPROC glMultiDrawElementsIndirect;
+	extern PFNGLDRAWELEMENTSINDIRECTPROC      glDrawElementsIndirect;
+	extern PFNGLFENCESYNCPROC      glFenceSync;
+	extern PFNGLCLIENTWAITSYNCPROC glClientWaitSync;
+	extern PFNGLDELETESYNCPROC     glDeleteSync;
+	extern PFNGLENABLEPROC glEnable;
+
+	bool init(void* hwnd, u32 width, u32 height);
+	void shutdown();
+	void swap_buffers();
+	void set_viewport(u32 width, u32 height);
+
+}

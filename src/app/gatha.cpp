@@ -20,9 +20,9 @@ void update() {
 }
 
 void render() {
-	// TODO: renderer::begin_frame();
+	renderer::begin_frame();
 	// TODO: draw scene
-	// TODO: renderer::end_frame();
+	renderer::end_frame();
 }
 
 void shutdown() {

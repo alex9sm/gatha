@@ -1,3 +1,4 @@
+/*
 #include "vk_core.hpp"
 #include "../../core/log.hpp"
 #include "../../core/array.hpp"
@@ -124,7 +125,7 @@ namespace renderer::vulkan {
 		graphics_queue_info.queueCount = 1;
 		graphics_queue_info.pQueuePriorities = &priority;
 		arr::array_push(&queue_create_infos, graphics_queue_info);
-		
+
 		if (context.present_queue_index != context.graphics_queue_index) {
 			VkDeviceQueueCreateInfo present_queue_info = {};
 			present_queue_info.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
@@ -292,4 +293,4 @@ namespace renderer::vulkan {
 		log::info("vulkan has shutdown");
 	}
 
-}
+} */
