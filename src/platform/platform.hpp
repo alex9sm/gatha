@@ -3,10 +3,6 @@
 
 namespace platform {
 
-	enum class WindowMode {Editor,Game};
-	void set_window_mode(WindowMode mode);
-	WindowMode get_window_mode();
-
 	int run();
 	bool is_running();
 	void* get_native_window_handle();

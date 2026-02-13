@@ -11,6 +11,7 @@ namespace {
     bool      running = false;
     WCHAR     szTitle[MAX_LOADSTRING];
     WCHAR     szWindowClass[MAX_LOADSTRING];
+
 }
 
 static bool register_window_class(HINSTANCE hInstance);
@@ -185,7 +186,7 @@ static bool create_main_window(HINSTANCE hInstance, int nCmdShow) {
 static LRESULT CALLBACK window_proc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam) {
 
     switch (message) {
-    
+    /*
     case WM_COMMAND: {
         int wmId = LOWORD(wParam);
         switch (wmId) {
@@ -199,7 +200,7 @@ static LRESULT CALLBACK window_proc(HWND hWnd, UINT message, WPARAM wParam, LPAR
             return DefWindowProc(hWnd, message, wParam, lParam);
         }
         break;
-    }
+    }*/
 
     case WM_PAINT: {
         PAINTSTRUCT ps;
