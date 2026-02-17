@@ -176,7 +176,7 @@ namespace opengl {
 
 		gl_context = wglCreateContextAttribsARB(device_context, nullptr, context_attr);
 		wglMakeCurrent(device_context, gl_context);
-        if (load_gl_functions()) {
+        if (!load_gl_functions()) {
             return false;
         }
         wglSwapIntervalEXT(0);

@@ -10,8 +10,6 @@ bool init() {
 	platform::get_paint_field_size(&w, &h);
 	renderer::init(platform::get_native_window_handle(), w, h);
 
-	//TODO: init vulkan
-
 	return true;
 }
 
