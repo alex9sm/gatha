@@ -97,4 +97,54 @@ namespace opengl {
         if (program) glDeleteProgram(program);
     }
 
+    static bool on_frag_found(const char* filename, void* userdata) {
+        const char* folder = static_cast<const char*>(userdata);
+        usize name_len = str::length(filename) - 5;
+
+        if (name_len == 0 || name_len >= 64) {
+            log::warn("shader_load: skipping %s", filename);
+            return true;
+        }
+
+        char name[64] = {};
+        memory::copy(name, filename, name_len);
+
+        char vert_path[256];
+        char frag_path[256];
+        str::format(vert_path, sizeof(vert_path), "%s/%s.vert", folder, name);
+        str::format(frag_path, sizeof(frag_path), "%s/%s.frag", folder, name);
+
+        GLuint program = shader_create(vert_path, frag_path);
+        if (!program) return true;
+
+        ShaderEntry entry = {};
+        str::copy(entry.name, name, sizeof(entry.name));
+        entry.program = program;
+        arr::array_push(&registry, entry);
+
+        return true;
+    }
+
+    bool shader_load(const char* folder) {
+        file::file_visit(folder, ".frag", on_frag_found, (void*)folder);
+        return true;
+    }
+
+    GLuint shader_get(const char* name) {
+        for (usize i = 0; i < registry.count; i++) {
+            if (str::equal(registry.data[i].name, name)) {
+                return registry.data[i].program;
+            }
+        }
+        log::warn("shader_get: %s not found", name);
+        return 0;
+    }
+
+    void shader_unload() {
+        for (usize i = 0; i < registry.count; i++) {
+            glDeleteProgram(registry.data[i].program);
+        }
+        arr::array_destroy(&registry);
+        log::info("shader_unload_all: all programs released");
+    }
 }

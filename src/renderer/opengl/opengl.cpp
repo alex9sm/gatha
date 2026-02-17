@@ -56,6 +56,10 @@ namespace opengl {
     PFNGLCLIENTWAITSYNCPROC glClientWaitSync = nullptr;
     PFNGLDELETESYNCPROC     glDeleteSync = nullptr;
 
+    PFNGLENABLEPROC              glEnable = nullptr;
+    PFNGLGETUNIFORMLOCATIONPROC  glGetUniformLocation = nullptr;
+    PFNGLUNIFORMMATRIX4FVPROC    glUniformMatrix4fv = nullptr;
+
 	namespace {
 
 		HMODULE opengl_dll = nullptr;
@@ -124,6 +128,10 @@ namespace opengl {
         glClientWaitSync = (PFNGLCLIENTWAITSYNCPROC)get_gl_proc("glClientWaitSync");
         glDeleteSync = (PFNGLDELETESYNCPROC)get_gl_proc("glDeleteSync");
 
+        glEnable = (PFNGLENABLEPROC)GetProcAddress(opengl_dll, "glEnable");
+        glGetUniformLocation = (PFNGLGETUNIFORMLOCATIONPROC)get_gl_proc("glGetUniformLocation");
+        glUniformMatrix4fv = (PFNGLUNIFORMMATRIX4FVPROC)get_gl_proc("glUniformMatrix4fv");
+
         return true;
     }
 
@@ -183,6 +191,7 @@ namespace opengl {
 
         glViewport(0, 0, static_cast<GLsizei>(w), static_cast<GLsizei>(h));
         glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
+        glEnable(GL_DEPTH_TEST);
 
         log::info("opengl context initialized");
         return true;

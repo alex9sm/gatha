@@ -1,5 +1,6 @@
 #include "file.hpp"
 #include "log.hpp"
+#include "string.hpp"
 
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
@@ -22,7 +23,7 @@ namespace file {
 
 		*file_size = static_cast<u64>(size.QuadPart);
 		CloseHandle(h);
-		return false;
+		return true;
 	}
 
 	u64 read_file(const char* path, void* buffer, u64 buffer_size) {
@@ -40,7 +41,7 @@ namespace file {
 		CloseHandle(h);
 
 		if (!ok) {
-			log::error("file read could not read: % s Win32 error % lu", path, GetLastError());
+			log::error("file read could not read: %s Win32 error %lu", path, GetLastError());
 			return 0;
 		}
 		return static_cast<u64>(bytes_read);
@@ -49,6 +50,26 @@ namespace file {
 	bool exists(const char* path) {
 		DWORD attr = GetFileAttributesA(path);
 		return (attr != INVALID_FILE_ATTRIBUTES) && !(attr & FILE_ATTRIBUTE_DIRECTORY);
+	}
+
+	void file_visit(const char* folder, const char* extension, file_visit_fn callback, void* userdata) {
+		char pattern[256];
+		str::copy(pattern, folder, sizeof(pattern));
+		str::concat(pattern, "/*", sizeof(pattern));
+		str::concat(pattern, extension, sizeof(pattern));
+
+		WIN32_FIND_DATAA find_data;
+		HANDLE h = FindFirstFileA(pattern, &find_data);
+
+		if (h == INVALID_HANDLE_VALUE) return;
+
+		do {
+			if (find_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) continue;
+			if (!callback(find_data.cFileName, userdata)) break;
+
+		} while (FindNextFileA(h, &find_data));
+
+		FindClose(h);
 	}
 
 }

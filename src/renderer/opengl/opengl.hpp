@@ -85,6 +85,8 @@ namespace opengl {
 	using PFNGLCLIENTWAITSYNCPROC = GLenum(*)(GLsync sync, GLbitfield flags, GLuint64 timeout);
 	using PFNGLDELETESYNCPROC = void (*)(GLsync sync);
 	using PFNGLENABLEPROC = void (*)(GLenum cap);
+	using PFNGLGETUNIFORMLOCATIONPROC = GLint(*)(GLuint program, const GLchar* name);
+	using PFNGLUNIFORMMATRIX4FVPROC = void (*)(GLint location, GLsizei count, GLboolean transpose, const GLfloat* value);
 
 	extern PFNGLCLEARPROC              glClear;
 	extern PFNGLCLEARCOLORPROC         glClearColor;
@@ -123,6 +125,8 @@ namespace opengl {
 	extern PFNGLCLIENTWAITSYNCPROC glClientWaitSync;
 	extern PFNGLDELETESYNCPROC     glDeleteSync;
 	extern PFNGLENABLEPROC glEnable;
+	extern PFNGLGETUNIFORMLOCATIONPROC glGetUniformLocation;
+	extern PFNGLUNIFORMMATRIX4FVPROC   glUniformMatrix4fv;
 
 	bool init(void* hwnd, u32 width, u32 height);
 	void shutdown();
