@@ -47,6 +47,7 @@ namespace opengl {
 	constexpr GLenum GL_WAIT_FAILED = 0x911D;
 	constexpr GLuint64 GL_TIMEOUT_IGNORED = 0xFFFFFFFFFFFFFFFFull;
 	constexpr GLenum GL_DEPTH_TEST = 0x0B71;
+	constexpr GLenum GL_CULL_FACE = 0x0B44;
 
 	using PFNGLCLEARPROC = void (*)(GLbitfield mask);
 	using PFNGLCLEARCOLORPROC = void (*)(GLclampf r, GLclampf g, GLclampf b, GLclampf a);

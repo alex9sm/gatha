@@ -192,6 +192,7 @@ namespace opengl {
         glViewport(0, 0, static_cast<GLsizei>(w), static_cast<GLsizei>(h));
         glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
         glEnable(GL_DEPTH_TEST);
+        glEnable(GL_CULL_FACE);
 
         log::info("opengl context initialized");
         return true;

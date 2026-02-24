@@ -35,8 +35,6 @@ void camera_update(Camera* cam, f32 dt) {
     if (platform::is_key_down(platform::KEY_S)) cam->position += forward * -speed;
     if (platform::is_key_down(platform::KEY_D)) cam->position += right   *  speed;
     if (platform::is_key_down(platform::KEY_A)) cam->position += right   * -speed;
-
-    // Vertical movement along world-Y — SPACE lifts up, CTRL drops down
     if (platform::is_key_down(platform::KEY_SPACE)) cam->position.y += speed;
     if (platform::is_key_down(platform::KEY_CTRL))  cam->position.y -= speed;
 }

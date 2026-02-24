@@ -11,6 +11,7 @@
 namespace {
     opengl::Mesh triangle;
     opengl::GLuint triangle_program;
+    opengl::GLint mvp_loc;
 	Camera cam;
 }
 
@@ -31,6 +32,7 @@ bool init() {
 
 	camera_init(&cam, { 0.0f, 0.0f, 3.0f }, 5.0f, 0.002f);
 	platform::set_mouse_captured(true);
+	mvp_loc = opengl::glGetUniformLocation(triangle_program, "u_mvp");
 
 	return true;
 }
@@ -62,7 +64,6 @@ void render() {
 	mat4 mvp = proj * view * model;
 
 	opengl::glUseProgram(triangle_program);
-	opengl::GLint mvp_loc = opengl::glGetUniformLocation(triangle_program, "u_mvp");
 	opengl::glUniformMatrix4fv(mvp_loc, 1, opengl::GL_FALSE, &mvp.col[0][0]);
 
 	opengl::mesh_draw(triangle);
