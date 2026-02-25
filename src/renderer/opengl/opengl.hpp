@@ -88,6 +88,8 @@ namespace opengl {
 	using PFNGLENABLEPROC = void (*)(GLenum cap);
 	using PFNGLGETUNIFORMLOCATIONPROC = GLint(*)(GLuint program, const GLchar* name);
 	using PFNGLUNIFORMMATRIX4FVPROC = void (*)(GLint location, GLsizei count, GLboolean transpose, const GLfloat* value);
+	using PFNGLNAMEDBUFFERSUBDATAPROC = void (*)(GLuint buffer, GLintptr offset, GLsizeiptr size, const void* data);
+	using PFNGLUNIFORM1UIPROC = void (*)(GLint location, GLuint v0);
 
 	extern PFNGLCLEARPROC              glClear;
 	extern PFNGLCLEARCOLORPROC         glClearColor;
@@ -128,6 +130,8 @@ namespace opengl {
 	extern PFNGLENABLEPROC glEnable;
 	extern PFNGLGETUNIFORMLOCATIONPROC glGetUniformLocation;
 	extern PFNGLUNIFORMMATRIX4FVPROC   glUniformMatrix4fv;
+	extern PFNGLNAMEDBUFFERSUBDATAPROC glNamedBufferSubData;
+	extern PFNGLUNIFORM1UIPROC         glUniform1ui;
 
 	bool init(void* hwnd, u32 width, u32 height);
 	void shutdown();

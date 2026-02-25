@@ -30,7 +30,7 @@ namespace file {
 		HANDLE h = CreateFileA(path, GENERIC_READ, FILE_SHARE_READ, nullptr, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
 
 		if (h == INVALID_HANDLE_VALUE) {
-			log::error("file read could not open: %s Win32 error %lu", path, GetLastError());
+			logger::error("file read could not open: %s Win32 error %lu", path, GetLastError());
 			return 0;
 		}
 
@@ -41,10 +41,26 @@ namespace file {
 		CloseHandle(h);
 
 		if (!ok) {
-			log::error("file read could not read: %s Win32 error %lu", path, GetLastError());
+			logger::error("file read could not read: %s Win32 error %lu", path, GetLastError());
 			return 0;
 		}
 		return static_cast<u64>(bytes_read);
+	}
+
+	bool write_file(const char* path, const void* data, u64 size) {
+		HANDLE h = CreateFileA(path, GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+		if (h == INVALID_HANDLE_VALUE) {
+			logger::error("file write could not create: %s Win32 error %lu", path, GetLastError());
+			return false;
+		}
+		DWORD written = 0;
+		BOOL ok = WriteFile(h, data, static_cast<DWORD>(size), &written, nullptr);
+		CloseHandle(h);
+		if (!ok || written != (DWORD)size) {
+			logger::error("file write failed: %s Win32 error %lu", path, GetLastError());
+			return false;
+		}
+		return true;
 	}
 
 	bool exists(const char* path) {

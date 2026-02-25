@@ -5,7 +5,7 @@
 
 extern "C" __declspec(dllimport) void __stdcall OutputDebugStringA(const char* str);
 
-namespace log {
+namespace logger {
 
     enum class Level { Trace, Debug, Info, Warn, Error, Fatal };
 

@@ -59,6 +59,8 @@ namespace opengl {
     PFNGLENABLEPROC              glEnable = nullptr;
     PFNGLGETUNIFORMLOCATIONPROC  glGetUniformLocation = nullptr;
     PFNGLUNIFORMMATRIX4FVPROC    glUniformMatrix4fv = nullptr;
+    PFNGLNAMEDBUFFERSUBDATAPROC  glNamedBufferSubData = nullptr;
+    PFNGLUNIFORM1UIPROC          glUniform1ui = nullptr;
 
 	namespace {
 
@@ -131,6 +133,8 @@ namespace opengl {
         glEnable = (PFNGLENABLEPROC)GetProcAddress(opengl_dll, "glEnable");
         glGetUniformLocation = (PFNGLGETUNIFORMLOCATIONPROC)get_gl_proc("glGetUniformLocation");
         glUniformMatrix4fv = (PFNGLUNIFORMMATRIX4FVPROC)get_gl_proc("glUniformMatrix4fv");
+        glNamedBufferSubData = (PFNGLNAMEDBUFFERSUBDATAPROC)get_gl_proc("glNamedBufferSubData");
+        glUniform1ui = (PFNGLUNIFORM1UIPROC)get_gl_proc("glUniform1ui");
 
         return true;
     }
@@ -194,7 +198,7 @@ namespace opengl {
         glEnable(GL_DEPTH_TEST);
         glEnable(GL_CULL_FACE);
 
-        log::info("opengl context initialized");
+        logger::info("opengl: initialized");
         return true;
 	}
 

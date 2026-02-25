@@ -135,8 +135,81 @@ inline mat4 mat4_perspective(f32 fov_y, f32 aspect, f32 z_near, f32 z_far) {
     return m;
 }
 
+inline vec3 mat4_transform_point(mat4 m, vec3 p) {
+    return {
+        m.col[0][0]*p.x + m.col[1][0]*p.y + m.col[2][0]*p.z + m.col[3][0],
+        m.col[0][1]*p.x + m.col[1][1]*p.y + m.col[2][1]*p.z + m.col[3][1],
+        m.col[0][2]*p.x + m.col[1][2]*p.y + m.col[2][2]*p.z + m.col[3][2]
+    };
+}
+
+inline vec3 mat4_transform_dir(mat4 m, vec3 d) {
+    return {
+        m.col[0][0]*d.x + m.col[1][0]*d.y + m.col[2][0]*d.z,
+        m.col[0][1]*d.x + m.col[1][1]*d.y + m.col[2][1]*d.z,
+        m.col[0][2]*d.x + m.col[1][2]*d.y + m.col[2][2]*d.z
+    };
+}
+
 constexpr f32 PI = 3.14159265358979323846f;
 constexpr f32 TAU = 6.28318530717958647692f;
 
 inline f32 to_radians(f32 degrees) { return degrees * (PI / 180.0f); }
 inline f32 to_degrees(f32 radians) { return radians * (180.0f / PI); }
+
+struct AABB {
+    vec3 min;
+    vec3 max;
+};
+
+inline AABB aabb_transform(const AABB& local, mat4 m) {
+    vec3 center = (local.min + local.max) * 0.5f;
+    vec3 extent = (local.max - local.min) * 0.5f;
+    vec3 new_center = mat4_transform_point(m, center);
+    vec3 new_extent = {
+        fabsf(m.col[0][0]) * extent.x + fabsf(m.col[1][0]) * extent.y + fabsf(m.col[2][0]) * extent.z,
+        fabsf(m.col[0][1]) * extent.x + fabsf(m.col[1][1]) * extent.y + fabsf(m.col[2][1]) * extent.z,
+        fabsf(m.col[0][2]) * extent.x + fabsf(m.col[1][2]) * extent.y + fabsf(m.col[2][2]) * extent.z
+    };
+
+    return { new_center - new_extent, new_center + new_extent };
+}
+
+struct Frustum {
+    vec4 planes[6];
+};
+
+inline Frustum frustum_from_vp(mat4 vp) {
+    Frustum f;
+    f.planes[0] = { vp.col[0][3]+vp.col[0][0], vp.col[1][3]+vp.col[1][0], vp.col[2][3]+vp.col[2][0], vp.col[3][3]+vp.col[3][0] };
+    f.planes[1] = { vp.col[0][3]-vp.col[0][0], vp.col[1][3]-vp.col[1][0], vp.col[2][3]-vp.col[2][0], vp.col[3][3]-vp.col[3][0] };
+    f.planes[2] = { vp.col[0][3]+vp.col[0][1], vp.col[1][3]+vp.col[1][1], vp.col[2][3]+vp.col[2][1], vp.col[3][3]+vp.col[3][1] };
+    f.planes[3] = { vp.col[0][3]-vp.col[0][1], vp.col[1][3]-vp.col[1][1], vp.col[2][3]-vp.col[2][1], vp.col[3][3]-vp.col[3][1] };
+    f.planes[4] = { vp.col[0][3]+vp.col[0][2], vp.col[1][3]+vp.col[1][2], vp.col[2][3]+vp.col[2][2], vp.col[3][3]+vp.col[3][2] };
+    f.planes[5] = { vp.col[0][3]-vp.col[0][2], vp.col[1][3]-vp.col[1][2], vp.col[2][3]-vp.col[2][2], vp.col[3][3]-vp.col[3][2] };
+
+    for (int i = 0; i < 6; i++) {
+        f32 len = sqrtf(f.planes[i].x*f.planes[i].x + f.planes[i].y*f.planes[i].y + f.planes[i].z*f.planes[i].z);
+        if (len > 0.0001f) {
+            f32 inv = 1.0f / len;
+            f.planes[i].x *= inv;
+            f.planes[i].y *= inv;
+            f.planes[i].z *= inv;
+            f.planes[i].w *= inv;
+        }
+    }
+    return f;
+}
+
+inline bool frustum_test_aabb(const Frustum& f, const AABB& box) {
+    for (int i = 0; i < 6; i++) {
+        vec3 n = { f.planes[i].x, f.planes[i].y, f.planes[i].z };
+        vec3 p = {
+            n.x >= 0 ? box.max.x : box.min.x,
+            n.y >= 0 ? box.max.y : box.min.y,
+            n.z >= 0 ? box.max.z : box.min.z
+        };
+        if (dot(n, p) + f.planes[i].w < 0.0f) return false;
+    }
+    return true;
+}

@@ -20,13 +20,13 @@ namespace opengl {
     static GLuint compile_shader(GLenum type, const char* path) {
         u64 file_size = 0;
         if (!file::get_size(path, &file_size)) {
-            log::error("shader: could not find '%s'", path);
+            logger::error("shader: could not find '%s'", path);
             return 0;
         }
 
         char* source = static_cast<char*>(memory::malloc(file_size + 1));
         if (!source) {
-            log::error("shader: out of memory reading '%s'", path);
+            logger::error("shader: out of memory reading '%s'", path);
             return 0;
         }
 
@@ -34,7 +34,7 @@ namespace opengl {
         source[bytes_read] = '\0';
 
         if (bytes_read != file_size) {
-            log::error("shader: partial read on '%s' (%llu of %llu bytes)", path, bytes_read, file_size);
+            logger::error("shader: partial read on '%s' (%llu of %llu bytes)", path, bytes_read, file_size);
             memory::free(source);
             return 0;
         }
@@ -52,7 +52,7 @@ namespace opengl {
         if (!status) {
             char info[1024];
             glGetShaderInfoLog(shader, sizeof(info), nullptr, info);
-            log::error("shader: compile error in '%s':\n%s", path, info);
+            logger::error("shader: compile error in '%s':\n%s", path, info);
             glDeleteShader(shader);
             return 0;
         }
@@ -84,12 +84,11 @@ namespace opengl {
         if (!status) {
             char info[1024];
             glGetProgramInfoLog(program, sizeof(info), nullptr, info);
-            log::error("shader: link error (%s + %s):\n%s", vert_path, frag_path, info);
+            logger::error("shader: link error (%s + %s):\n%s", vert_path, frag_path, info);
             glDeleteProgram(program);
             return 0;
         }
 
-        log::info("shader: compiled %s + %s program %u", vert_path, frag_path, program);
         return program;
     }
 
@@ -102,7 +101,7 @@ namespace opengl {
         usize name_len = str::length(filename) - 5;
 
         if (name_len == 0 || name_len >= 64) {
-            log::warn("shader_load: skipping %s", filename);
+            logger::warn("shader_load: skipping %s", filename);
             return true;
         }
 
@@ -136,7 +135,7 @@ namespace opengl {
                 return registry.data[i].program;
             }
         }
-        log::warn("shader_get: %s not found", name);
+        logger::warn("shader_get: %s not found", name);
         return 0;
     }
 
@@ -145,6 +144,6 @@ namespace opengl {
             glDeleteProgram(registry.data[i].program);
         }
         arr::array_destroy(&registry);
-        log::info("shader_unload_all: all programs released");
+        logger::info("shader: shutdown");
     }
 }

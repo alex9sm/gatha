@@ -16,7 +16,7 @@ namespace renderer::vulkan {
 
 	static bool check_success(VkResult result, const char* operation) {
 		if (result != VK_SUCCESS) {
-			log::error("Vulkan: %s failed with error code %d", operation, result);
+			logger::error("Vulkan: %s failed with error code %d", operation, result);
 			return false;
 		}
 		return true;
@@ -63,7 +63,7 @@ namespace renderer::vulkan {
 		vkEnumeratePhysicalDevices(context.instance, &device_count, nullptr);
 
 		if (device_count == 0) {
-			log::error("No vulkan compatible GPUs found.");
+			logger::error("No vulkan compatible GPUs found.");
 			return false;
 		}
 
@@ -104,14 +104,14 @@ namespace renderer::vulkan {
 				vkGetPhysicalDeviceProperties(device, &context.device_properties);
 				vkGetPhysicalDeviceFeatures(device, &context.device_features);
 				vkGetPhysicalDeviceMemoryProperties(device, &context.device_memory);
-				log::info("Vulkan selected GPU: %s", context.device_properties.deviceName);
+				logger::info("Vulkan selected GPU: %s", context.device_properties.deviceName);
 				arr::array_destroy(&devices);
 				return true;
 			}
 		}
 
 		arr::array_destroy(&devices);
-		log::error("No vulkan compatible GPU found.");
+		logger::error("No vulkan compatible GPU found.");
 		return false;
 	}
 
@@ -257,7 +257,7 @@ namespace renderer::vulkan {
 	//////////////////////////////////////////////////////////////////////////////////////////////////
 
 	bool init(void* native_window_handle, u32 width, u32 height) {
-		log::info("initializing vulkan");
+		logger::info("initializing vulkan");
 
 		if (!create_instance()) return false;
 		if (!create_surface(native_window_handle)) return false;
@@ -265,13 +265,13 @@ namespace renderer::vulkan {
 		if (!create_logical_device()) return false;
 		if (!create_swapchain(width, height)) return false;
 		initialized = true;
-		log::info("vulkan initialized");
+		logger::info("vulkan initialized");
 		return true;
 	}
 
 	void shutdown() {
 		if (!initialized) return;
-		log::info("vulkan shutting down");
+		logger::info("vulkan shutting down");
 
 		if (context.device) {
 			vkDeviceWaitIdle(context.device);
@@ -290,7 +290,7 @@ namespace renderer::vulkan {
 			context.instance = VK_NULL_HANDLE;
 		}
 		initialized = false;
-		log::info("vulkan has shutdown");
+		logger::info("vulkan has shutdown");
 	}
 
 } */
