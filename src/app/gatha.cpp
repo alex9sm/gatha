@@ -3,9 +3,12 @@
 #include "../core/types.hpp"
 #include "../core/math.hpp"
 #include "../core/memory.hpp"
+#include "../core/string.hpp"
+#include "../core/log.hpp"
 #include "../renderer/renderer.hpp"
 #include "../renderer/opengl/shader.hpp"
 #include "../renderer/opengl/mesh.hpp"
+#include "../renderer/opengl/texture.hpp"
 #include "../platform/platform.hpp"
 #include "../asset/asset.hpp"
 #include "../ecs/world.hpp"
@@ -15,6 +18,8 @@ namespace {
 	opengl::GLuint shader_program;
 	opengl::GLint  vp_loc;
 	opengl::GLint  offset_loc;
+	opengl::GLint  albedo_loc;
+	opengl::GLuint fallback_texture;
 	Camera         cam;
 
 	ecs::World     world;
@@ -32,6 +37,27 @@ namespace {
 	};
 }
 
+static void on_menu(int action) {
+	if (action == platform::MENU_FILE_SAVE) {
+		if (current_scene.path[0]) {
+			scene::save(&current_scene, &world);
+		}
+	} else if (action == platform::MENU_FILE_SAVE_AS) {
+		char path[256];
+		if (platform::editor_save_file_dialog(path, sizeof(path))) {
+			str::copy(current_scene.path, path, sizeof(current_scene.path));
+			scene::save(&current_scene, &world);
+		}
+	} else if (action == platform::MENU_FILE_LOAD) {
+		char path[256];
+		if (platform::editor_open_file_dialog(path, sizeof(path))) {
+			scene::unload(&current_scene, &world);
+			asset::shutdown();
+			scene::load(&current_scene, path, &world);
+		}
+	}
+}
+
 static mat4 transform_to_mat4(const ecs::Transform& t) {
 	mat4 m = mat4_translate(t.position);
 	m = m * mat4_rotate(t.rotation.x, { 0, 1, 0 });
@@ -42,6 +68,9 @@ static mat4 transform_to_mat4(const ecs::Transform& t) {
 }
 
 bool init() {
+	platform::editor_init();
+	platform::editor_set_menu_callback(on_menu);
+
 	u32 w, h;
 	platform::get_paint_field_size(&w, &h);
 	renderer::init(platform::get_native_window_handle(), w, h);
@@ -49,6 +78,8 @@ bool init() {
 	shader_program = opengl::shader_get("shader");
 	vp_loc = opengl::glGetUniformLocation(shader_program, "u_vp");
 	offset_loc = opengl::glGetUniformLocation(shader_program, "u_instance_offset");
+	albedo_loc = opengl::glGetUniformLocation(shader_program, "u_albedo");
+	fallback_texture = opengl::texture_create_solid(255, 0, 255, 255);
 
 	// Create SSBO with GL_DYNAMIC_STORAGE_BIT so we can update it each frame
 	opengl::glCreateBuffers(1, &transform_ssbo);
@@ -60,13 +91,28 @@ bool init() {
 	scene::load(&current_scene, "assets/scenes/test.json", &world);
 
 	camera_init(&cam, { 0.0f, 1.0f, 5.0f }, 5.0f, 0.002f);
-	platform::set_mouse_captured(true);
+	if (!platform::is_editor_mode()) {
+		platform::set_mouse_captured(true);
+	}
 
 	return true;
 }
 
 void update() {
 	f32 dt = platform::get_delta_time();
+
+	static f32 f5_cooldown = 0.0f;
+	f5_cooldown -= dt;
+	if (platform::is_key_down(platform::KEY_F5) && f5_cooldown <= 0.0f) {
+		platform::editor_toggle();
+		if (!platform::is_editor_mode()) {
+			platform::set_mouse_captured(true);
+		} else {
+			platform::set_mouse_captured(false);
+		}
+		f5_cooldown = 0.3f;
+	}
+
 	static f32 esc_cooldown = 0.0f;
 	esc_cooldown -= dt;
 	if (platform::is_key_down(platform::KEY_ESCAPE) && esc_cooldown <= 0.0f) {
@@ -74,6 +120,19 @@ void update() {
 		captured = !captured;
 		platform::set_mouse_captured(captured);
 		esc_cooldown = 0.3f;
+	}
+
+	if (platform::is_editor_mode()) {
+		static f32 fps_accum = 0.0f;
+		static u32 fps_frames = 0;
+		fps_accum += dt;
+		fps_frames++;
+		if (fps_accum >= 0.25f) {
+			f32 avg_dt = fps_accum / (f32)fps_frames;
+			platform::editor_set_fps(1.0f / avg_dt, avg_dt * 1000.0f);
+			fps_accum = 0.0f;
+			fps_frames = 0;
+		}
 	}
 
 	camera_update(&cam, dt);
@@ -93,10 +152,7 @@ void render() {
 	mat4 proj = mat4_perspective(to_radians(60.0f), aspect, 0.1f, 1000.0f);
 	mat4 vp = proj * view;
 
-	// Debug: set cull_fov smaller than 60 to see objects disappear while still on screen
-	constexpr f32 cull_fov = 60.0f;
-	mat4 cull_proj = mat4_perspective(to_radians(cull_fov), aspect, 0.1f, 1000.0f);
-	Frustum frustum = frustum_from_vp(cull_proj * view);
+	Frustum frustum = frustum_from_vp(vp);
 
 	u32 instance_count = (u32)world.mesh_instances.data.count;
 	if (instance_count == 0) { renderer::end_frame(); return; }
@@ -175,12 +231,14 @@ void render() {
 	opengl::glBindBufferBase(opengl::GL_SHADER_STORAGE_BUFFER, 0, transform_ssbo);
 	opengl::glUseProgram(shader_program);
 	opengl::glUniformMatrix4fv(vp_loc, 1, opengl::GL_FALSE, &vp.col[0][0]);
+	opengl::glUniform1i(albedo_loc, 0);
 
-	// One draw call per unique asset
 	for (usize b = 0; b < batches.count; b++) {
 		asset::Asset* a = asset::get(batches.data[b].asset_id);
 		if (!a) continue;
 
+		opengl::GLuint tex = a->texture ? a->texture : fallback_texture;
+		opengl::glBindTextureUnit(0, tex);
 		opengl::glUniform1ui(offset_loc, batches.data[b].offset);
 		opengl::glBindVertexArray(a->mesh.vao);
 		opengl::glDrawElementsInstanced(opengl::GL_TRIANGLES,
@@ -197,6 +255,7 @@ void shutdown() {
 	scene::unload(&current_scene, &world);
 	ecs::world_destroy(&world);
 	opengl::glDeleteBuffers(1, &transform_ssbo);
+	opengl::texture_destroy(fallback_texture);
 	asset::shutdown();
 	opengl::shader_unload();
 }

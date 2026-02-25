@@ -10,6 +10,7 @@
 #include "../core/array.hpp"
 #include "../renderer/opengl/vertex.hpp"
 #include "../renderer/opengl/mesh.hpp"
+#include "../renderer/opengl/texture.hpp"
 
 namespace asset {
 
@@ -62,6 +63,22 @@ namespace asset {
 		memory::copy(&result.col[2][0], m + 8,  4 * sizeof(f32));
 		memory::copy(&result.col[3][0], m + 12, 4 * sizeof(f32));
 		return result;
+	}
+
+	static void extract_directory(const char* filepath, char* out, usize out_size) {
+		const char* last_sep = nullptr;
+		for (const char* p = filepath; *p; p++) {
+			if (*p == '/' || *p == '\\') last_sep = p;
+		}
+		if (last_sep) {
+			usize len = (usize)(last_sep - filepath);
+			if (len >= out_size) len = out_size - 1;
+			memory::copy(out, filepath, len);
+			out[len] = '\0';
+		} else {
+			out[0] = '.';
+			out[1] = '\0';
+		}
 	}
 
 	static const cgltf_accessor* find_attribute(const cgltf_primitive* prim, cgltf_attribute_type type) {
@@ -227,6 +244,25 @@ namespace asset {
 
 		memory::free(temp_floats);
 		memory::free(temp_indices);
+
+		// Extract texture from first material's baseColorTexture
+		opengl::GLuint texture = 0;
+		if (data->materials_count > 0) {
+			cgltf_material* mat = &data->materials[0];
+			if (mat->has_pbr_metallic_roughness &&
+				mat->pbr_metallic_roughness.base_color_texture.texture &&
+				mat->pbr_metallic_roughness.base_color_texture.texture->image) {
+				const char* uri = mat->pbr_metallic_roughness.base_color_texture.texture->image->uri;
+				if (uri) {
+					char dir[256];
+					extract_directory(filepath, dir, sizeof(dir));
+					char tex_path[512];
+					str::format(tex_path, sizeof(tex_path), "%s/%s", dir, uri);
+					texture = opengl::texture_load(tex_path);
+				}
+			}
+		}
+
 		cgltf_free(data);
 
 		opengl::Mesh gpu_mesh = opengl::mesh_create(
@@ -238,6 +274,7 @@ namespace asset {
 		extract_name(filepath, asset.name, sizeof(asset.name));
 		str::copy(asset.path, filepath, sizeof(asset.path));
 		asset.mesh = gpu_mesh;
+		asset.texture = texture;
 		asset.bounds = { bounds_min, bounds_max };
 		asset.vertex_count = (u32)vertices.count;
 		asset.index_count = (u32)indices.count;
@@ -275,6 +312,7 @@ namespace asset {
 	void shutdown() {
 		for (usize i = 0; i < registry.count; i++) {
 			opengl::mesh_destroy(&registry.data[i].mesh);
+			opengl::texture_destroy(registry.data[i].texture);
 		}
 		arr::array_destroy(&registry);
 		logger::info("asset: shutdown");

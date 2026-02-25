@@ -1,6 +1,7 @@
 #include "win32.hpp"
 #include "../../platform/platform.hpp"
 #include "../../core/types.hpp"
+#include "../../core/string.hpp"
 #include "../../app/gatha.hpp"
 
 namespace {
@@ -20,6 +21,30 @@ namespace {
     f32  mouse_dy = 0.0f;
     bool mouse_captured = false;
 
+    HWND viewport_hwnd = nullptr;
+    HWND left_panel_hwnd = nullptr;
+    HWND right_panel_hwnd = nullptr;
+    bool editor_mode = true;
+
+    constexpr int LEFT_PANEL_WIDTH = 200;
+    constexpr int RIGHT_PANEL_WIDTH = 250;
+
+    constexpr int PANEL_ID_LEFT = 0;
+    constexpr int PANEL_ID_RIGHT = 1;
+
+    char fps_text[64] = "FPS: ---";
+    char frametime_text[64] = "Frame: --- ms";
+
+    HMENU menu_bar = nullptr;
+
+    constexpr int IDM_FILE_SAVE    = 40001;
+    constexpr int IDM_FILE_SAVE_AS = 40002;
+    constexpr int IDM_FILE_LOAD    = 40003;
+
+    // Callback for menu actions — set by app layer
+    using MenuCallback = void (*)(int action);
+    MenuCallback menu_callback = nullptr;
+
 }
 
 static platform::Key vk_to_key(WPARAM vk) {
@@ -32,19 +57,21 @@ static platform::Key vk_to_key(WPARAM vk) {
     case VK_SPACE:   return platform::KEY_SPACE;
     case VK_SHIFT:   return platform::KEY_SHIFT;
     case VK_ESCAPE:  return platform::KEY_ESCAPE;
+    case VK_F5:      return platform::KEY_F5;
     default:         return platform::KEY_COUNT; // ignore
     }
 }
 
 static void sample_mouse() {
-    if (!mouse_captured || !hWnd) {
+    HWND target = viewport_hwnd ? viewport_hwnd : hWnd;
+    if (!mouse_captured || !target) {
         mouse_dx = 0.0f;
         mouse_dy = 0.0f;
         return;
     }
 
     RECT client;
-    GetClientRect(hWnd, &client);
+    GetClientRect(target, &client);
     POINT centre = {
         (client.right - client.left) / 2,
         (client.bottom - client.top) / 2
@@ -52,19 +79,21 @@ static void sample_mouse() {
 
     POINT cursor;
     GetCursorPos(&cursor);
-    ScreenToClient(hWnd, &cursor);
+    ScreenToClient(target, &cursor);
 
     mouse_dx = (f32)(cursor.x - centre.x);
     mouse_dy = (f32)(cursor.y - centre.y);
     POINT screen_centre = centre;
-    ClientToScreen(hWnd, &screen_centre);
+    ClientToScreen(target, &screen_centre);
     SetCursorPos(screen_centre.x, screen_centre.y);
 }
 
 static bool register_window_class(HINSTANCE hInst);
 static bool create_main_window(HINSTANCE hInst, int nCmdShow);
 static LRESULT CALLBACK window_proc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
+static LRESULT CALLBACK panel_proc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
 static INT_PTR CALLBACK about_dialog_proc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam);
+static void editor_layout();
 
 namespace platform {
     namespace internal {
@@ -147,11 +176,15 @@ namespace platform {
 
     bool is_running() { return running; }
 
-    void* get_native_window_handle() { return static_cast<void*>(hWnd); }
+    void* get_native_window_handle() {
+        HWND target = viewport_hwnd ? viewport_hwnd : hWnd;
+        return static_cast<void*>(target);
+    }
 
     void get_paint_field_size(u32* width, u32* height) {
+        HWND target = viewport_hwnd ? viewport_hwnd : hWnd;
         RECT rect;
-        GetClientRect(hWnd, &rect);
+        GetClientRect(target, &rect);
         *width = static_cast<u32>(rect.right - rect.left);
         *height = static_cast<u32>(rect.bottom - rect.top);
     }
@@ -174,13 +207,14 @@ namespace platform {
         ShowCursor(!captured);
 
         if (captured) {
+            HWND target = viewport_hwnd ? viewport_hwnd : hWnd;
             RECT client;
-            GetClientRect(hWnd, &client);
+            GetClientRect(target, &client);
             POINT centre = {
                 (client.right - client.left) / 2,
                 (client.bottom - client.top) / 2
             };
-            ClientToScreen(hWnd, &centre);
+            ClientToScreen(target, &centre);
             SetCursorPos(centre.x, centre.y);
         }
         else {
@@ -213,7 +247,7 @@ static bool register_window_class(HINSTANCE hInst) {
     wcex.hIcon = LoadIcon(hInst, MAKEINTRESOURCE(IDI_GATHA));
     wcex.hCursor = LoadCursor(nullptr, IDC_ARROW);
     wcex.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
-    wcex.lpszMenuName = MAKEINTRESOURCEW(IDC_GATHA);
+    wcex.lpszMenuName = nullptr;
     wcex.lpszClassName = szWindowClass;
     wcex.hIconSm = LoadIcon(hInst, MAKEINTRESOURCE(IDI_SMALL));
     return RegisterClassExW(&wcex) != 0;
@@ -222,7 +256,7 @@ static bool register_window_class(HINSTANCE hInst) {
 static bool create_main_window(HINSTANCE hInst, int nCmdShow) {
     hWnd = CreateWindowW(
         szWindowClass, szTitle,
-        WS_OVERLAPPEDWINDOW,
+        WS_OVERLAPPEDWINDOW | WS_CLIPCHILDREN,
         CW_USEDEFAULT, 0, CW_USEDEFAULT, 0,
         nullptr, nullptr, hInst, nullptr
     );
@@ -257,6 +291,19 @@ static LRESULT CALLBACK window_proc(HWND hWnd, UINT message, WPARAM wParam, LPAR
         return 0;
     }
 
+    case WM_COMMAND:
+        if (HIWORD(wParam) == 0) {
+            int id = LOWORD(wParam);
+            if (menu_callback && (id == IDM_FILE_SAVE || id == IDM_FILE_SAVE_AS || id == IDM_FILE_LOAD)) {
+                menu_callback(id);
+            }
+        }
+        return 0;
+
+    case WM_SIZE:
+        if (viewport_hwnd) editor_layout();
+        return 0;
+
     case WM_PAINT: {
         PAINTSTRUCT ps;
         HDC hdc = BeginPaint(hWnd, &ps);
@@ -274,6 +321,208 @@ static LRESULT CALLBACK window_proc(HWND hWnd, UINT message, WPARAM wParam, LPAR
     }
 
     return 0;
+}
+
+static LRESULT CALLBACK panel_proc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam) {
+    switch (message) {
+    case WM_PAINT: {
+        PAINTSTRUCT ps;
+        HDC hdc = BeginPaint(hwnd, &ps);
+
+        RECT rc;
+        GetClientRect(hwnd, &rc);
+
+        HBRUSH bg = CreateSolidBrush(RGB(45, 45, 45));
+        FillRect(hdc, &rc, bg);
+        DeleteObject(bg);
+
+        SetBkMode(hdc, TRANSPARENT);
+        SetTextColor(hdc, RGB(200, 200, 200));
+
+        HFONT font = CreateFontA(14, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
+            DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
+            CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_DONTCARE, "Segoe UI");
+        HFONT old_font = (HFONT)SelectObject(hdc, font);
+
+        int panel_id = (int)GetWindowLongPtrA(hwnd, GWLP_USERDATA);
+
+        if (panel_id == PANEL_ID_LEFT) {
+            RECT section = { 8, 8, rc.right - 8, 24 };
+            DrawTextA(hdc, "Entities", -1, &section, DT_LEFT | DT_SINGLELINE);
+
+            int mid_y = (rc.bottom - rc.top) / 2;
+            HPEN pen = CreatePen(PS_SOLID, 1, RGB(80, 80, 80));
+            HPEN old_pen = (HPEN)SelectObject(hdc, pen);
+            MoveToEx(hdc, 4, mid_y, nullptr);
+            LineTo(hdc, rc.right - 4, mid_y);
+            SelectObject(hdc, old_pen);
+            DeleteObject(pen);
+
+            RECT assets_section = { 8, mid_y + 8, rc.right - 8, mid_y + 24 };
+            DrawTextA(hdc, "Assets", -1, &assets_section, DT_LEFT | DT_SINGLELINE);
+        } else if (panel_id == PANEL_ID_RIGHT) {
+            RECT fps_rect = { 8, 8, rc.right - 8, 24 };
+            DrawTextA(hdc, fps_text, -1, &fps_rect, DT_LEFT | DT_SINGLELINE);
+
+            RECT ft_rect = { 8, 26, rc.right - 8, 42 };
+            DrawTextA(hdc, frametime_text, -1, &ft_rect, DT_LEFT | DT_SINGLELINE);
+
+            HPEN pen = CreatePen(PS_SOLID, 1, RGB(80, 80, 80));
+            HPEN old_pen = (HPEN)SelectObject(hdc, pen);
+            MoveToEx(hdc, 4, 50, nullptr);
+            LineTo(hdc, rc.right - 4, 50);
+            SelectObject(hdc, old_pen);
+            DeleteObject(pen);
+
+            RECT prop_rect = { 8, 58, rc.right - 8, 74 };
+            DrawTextA(hdc, "Properties", -1, &prop_rect, DT_LEFT | DT_SINGLELINE);
+        }
+
+        SelectObject(hdc, old_font);
+        DeleteObject(font);
+        EndPaint(hwnd, &ps);
+        return 0;
+    }
+
+    case WM_ERASEBKGND:
+        return 1;
+
+    default:
+        return DefWindowProcA(hwnd, message, wParam, lParam);
+    }
+}
+
+static void editor_layout() {
+    RECT rc;
+    GetClientRect(hWnd, &rc);
+    int w = rc.right - rc.left;
+    int h = rc.bottom - rc.top;
+
+    if (editor_mode) {
+        int vp_x = LEFT_PANEL_WIDTH;
+        int vp_w = w - LEFT_PANEL_WIDTH - RIGHT_PANEL_WIDTH;
+        if (vp_w < 1) vp_w = 1;
+
+        MoveWindow(left_panel_hwnd, 0, 0, LEFT_PANEL_WIDTH, h, TRUE);
+        MoveWindow(right_panel_hwnd, w - RIGHT_PANEL_WIDTH, 0, RIGHT_PANEL_WIDTH, h, TRUE);
+        MoveWindow(viewport_hwnd, vp_x, 0, vp_w, h, TRUE);
+
+        ShowWindow(left_panel_hwnd, SW_SHOW);
+        ShowWindow(right_panel_hwnd, SW_SHOW);
+    } else {
+        ShowWindow(left_panel_hwnd, SW_HIDE);
+        ShowWindow(right_panel_hwnd, SW_HIDE);
+        MoveWindow(viewport_hwnd, 0, 0, w, h, TRUE);
+    }
+}
+
+namespace platform {
+
+    void editor_init() {
+        WNDCLASSEXA panel_class = {};
+        panel_class.cbSize = sizeof(WNDCLASSEXA);
+        panel_class.style = CS_HREDRAW | CS_VREDRAW;
+        panel_class.lpfnWndProc = panel_proc;
+        panel_class.hInstance = hInstance;
+        panel_class.hCursor = LoadCursor(nullptr, IDC_ARROW);
+        panel_class.lpszClassName = "GathaPanel";
+        RegisterClassExA(&panel_class);
+
+        WNDCLASSEXA vp_class = {};
+        vp_class.cbSize = sizeof(WNDCLASSEXA);
+        vp_class.style = CS_OWNDC;
+        vp_class.lpfnWndProc = DefWindowProcA;
+        vp_class.hInstance = hInstance;
+        vp_class.hCursor = LoadCursor(nullptr, IDC_ARROW);
+        vp_class.lpszClassName = "GathaViewport";
+        RegisterClassExA(&vp_class);
+
+        viewport_hwnd = CreateWindowExA(0, "GathaViewport", nullptr,
+            WS_CHILD | WS_VISIBLE, 0, 0, 100, 100,
+            hWnd, nullptr, hInstance, nullptr);
+
+        left_panel_hwnd = CreateWindowExA(0, "GathaPanel", nullptr,
+            WS_CHILD | WS_VISIBLE, 0, 0, LEFT_PANEL_WIDTH, 100,
+            hWnd, nullptr, hInstance, nullptr);
+        SetWindowLongPtrA(left_panel_hwnd, GWLP_USERDATA, PANEL_ID_LEFT);
+
+        right_panel_hwnd = CreateWindowExA(0, "GathaPanel", nullptr,
+            WS_CHILD | WS_VISIBLE, 0, 0, RIGHT_PANEL_WIDTH, 100,
+            hWnd, nullptr, hInstance, nullptr);
+        SetWindowLongPtrA(right_panel_hwnd, GWLP_USERDATA, PANEL_ID_RIGHT);
+
+        // Menu bar
+        menu_bar = CreateMenu();
+        HMENU file_menu = CreatePopupMenu();
+        AppendMenuA(file_menu, MF_STRING, IDM_FILE_SAVE, "Save\tCtrl+S");
+        AppendMenuA(file_menu, MF_STRING, IDM_FILE_SAVE_AS, "Save As...");
+        AppendMenuA(file_menu, MF_STRING, IDM_FILE_LOAD, "Load...");
+        AppendMenuA(menu_bar, MF_POPUP, (UINT_PTR)file_menu, "File");
+        SetMenu(hWnd, menu_bar);
+
+        editor_layout();
+    }
+
+    void editor_toggle() {
+        editor_mode = !editor_mode;
+        if (editor_mode) {
+            SetMenu(hWnd, menu_bar);
+        } else {
+            SetMenu(hWnd, nullptr);
+        }
+        editor_layout();
+    }
+
+    bool is_editor_mode() {
+        return editor_mode;
+    }
+
+    void editor_set_menu_callback(void (*callback)(int)) {
+        menu_callback = callback;
+    }
+
+    bool editor_open_file_dialog(char* out_path, u32 max_len) {
+        char file[512] = {};
+        OPENFILENAMEA ofn = {};
+        ofn.lStructSize = sizeof(ofn);
+        ofn.hwndOwner = hWnd;
+        ofn.lpstrFilter = "Scene Files (*.json)\0*.json\0All Files (*.*)\0*.*\0";
+        ofn.lpstrFile = file;
+        ofn.nMaxFile = sizeof(file);
+        ofn.lpstrInitialDir = "assets\\scenes";
+        ofn.Flags = OFN_FILEMUSTEXIST | OFN_NOCHANGEDIR;
+        if (!GetOpenFileNameA(&ofn)) return false;
+        str::copy(out_path, file, max_len);
+        return true;
+    }
+
+    bool editor_save_file_dialog(char* out_path, u32 max_len) {
+        char file[512] = {};
+        OPENFILENAMEA ofn = {};
+        ofn.lStructSize = sizeof(ofn);
+        ofn.hwndOwner = hWnd;
+        ofn.lpstrFilter = "Scene Files (*.json)\0*.json\0All Files (*.*)\0*.*\0";
+        ofn.lpstrFile = file;
+        ofn.nMaxFile = sizeof(file);
+        ofn.lpstrInitialDir = "assets\\scenes";
+        ofn.lpstrDefExt = "json";
+        ofn.Flags = OFN_OVERWRITEPROMPT | OFN_NOCHANGEDIR;
+        if (!GetSaveFileNameA(&ofn)) return false;
+        str::copy(out_path, file, max_len);
+        return true;
+    }
+
+    void editor_set_fps(f32 fps, f32 frame_time_ms) {
+        u32 fps_whole = (u32)fps;
+        u32 ft_whole = (u32)frame_time_ms;
+        u32 ft_frac = (u32)((frame_time_ms - (f32)ft_whole) * 100.0f);
+        str::format(fps_text, sizeof(fps_text), "FPS: %u", fps_whole);
+        str::format(frametime_text, sizeof(frametime_text), "Frame: %u.%02u ms", ft_whole, ft_frac);
+        if (right_panel_hwnd && editor_mode) {
+            InvalidateRect(right_panel_hwnd, nullptr, FALSE);
+        }
+    }
+
 }
 
 static INT_PTR CALLBACK about_dialog_proc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam) {

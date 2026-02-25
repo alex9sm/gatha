@@ -49,6 +49,23 @@ namespace opengl {
 	constexpr GLenum GL_DEPTH_TEST = 0x0B71;
 	constexpr GLenum GL_CULL_FACE = 0x0B44;
 
+	constexpr GLenum GL_TEXTURE_2D = 0x0DE1;
+	constexpr GLenum GL_TEXTURE0 = 0x84C0;
+	constexpr GLenum GL_RGB = 0x1907;
+	constexpr GLenum GL_RGBA = 0x1908;
+	constexpr GLenum GL_RGB8 = 0x8051;
+	constexpr GLenum GL_RGBA8 = 0x8058;
+	constexpr GLenum GL_SRGB8 = 0x8C41;
+	constexpr GLenum GL_SRGB8_ALPHA8 = 0x8C43;
+	constexpr GLenum GL_UNSIGNED_BYTE = 0x1401;
+	constexpr GLenum GL_TEXTURE_MIN_FILTER = 0x2801;
+	constexpr GLenum GL_TEXTURE_MAG_FILTER = 0x2800;
+	constexpr GLenum GL_LINEAR = 0x2601;
+	constexpr GLenum GL_LINEAR_MIPMAP_LINEAR = 0x2703;
+	constexpr GLenum GL_TEXTURE_WRAP_S = 0x2802;
+	constexpr GLenum GL_TEXTURE_WRAP_T = 0x2803;
+	constexpr GLenum GL_REPEAT = 0x2901;
+
 	using PFNGLCLEARPROC = void (*)(GLbitfield mask);
 	using PFNGLCLEARCOLORPROC = void (*)(GLclampf r, GLclampf g, GLclampf b, GLclampf a);
 	using PFNGLVIEWPORTPROC = void (*)(GLint x, GLint y, GLsizei w, GLsizei h);
@@ -90,6 +107,14 @@ namespace opengl {
 	using PFNGLUNIFORMMATRIX4FVPROC = void (*)(GLint location, GLsizei count, GLboolean transpose, const GLfloat* value);
 	using PFNGLNAMEDBUFFERSUBDATAPROC = void (*)(GLuint buffer, GLintptr offset, GLsizeiptr size, const void* data);
 	using PFNGLUNIFORM1UIPROC = void (*)(GLint location, GLuint v0);
+	using PFNGLUNIFORM1IPROC = void (*)(GLint location, GLint v0);
+	using PFNGLCREATETEXTURESPROC = void (*)(GLenum target, GLsizei n, GLuint* textures);
+	using PFNGLTEXTURESTORAGE2DPROC = void (*)(GLuint texture, GLsizei levels, GLenum internalformat, GLsizei width, GLsizei height);
+	using PFNGLTEXTURESUBIMAGE2DPROC = void (*)(GLuint texture, GLint level, GLint xoffset, GLint yoffset, GLsizei width, GLsizei height, GLenum format, GLenum type, const void* pixels);
+	using PFNGLTEXTUREPARAMETERIPROC = void (*)(GLuint texture, GLenum pname, GLint param);
+	using PFNGLGENERATETEXTUREMIPMAPPROC = void (*)(GLuint texture);
+	using PFNGLBINDTEXTUREUNITPROC = void (*)(GLuint unit, GLuint texture);
+	using PFNGLDELETETEXTURESPROC = void (*)(GLsizei n, const GLuint* textures);
 
 	extern PFNGLCLEARPROC              glClear;
 	extern PFNGLCLEARCOLORPROC         glClearColor;
@@ -132,6 +157,14 @@ namespace opengl {
 	extern PFNGLUNIFORMMATRIX4FVPROC   glUniformMatrix4fv;
 	extern PFNGLNAMEDBUFFERSUBDATAPROC glNamedBufferSubData;
 	extern PFNGLUNIFORM1UIPROC         glUniform1ui;
+	extern PFNGLUNIFORM1IPROC          glUniform1i;
+	extern PFNGLCREATETEXTURESPROC     glCreateTextures;
+	extern PFNGLTEXTURESTORAGE2DPROC   glTextureStorage2D;
+	extern PFNGLTEXTURESUBIMAGE2DPROC  glTextureSubImage2D;
+	extern PFNGLTEXTUREPARAMETERIPROC  glTextureParameteri;
+	extern PFNGLGENERATETEXTUREMIPMAPPROC glGenerateTextureMipmap;
+	extern PFNGLBINDTEXTUREUNITPROC    glBindTextureUnit;
+	extern PFNGLDELETETEXTURESPROC     glDeleteTextures;
 
 	bool init(void* hwnd, u32 width, u32 height);
 	void shutdown();

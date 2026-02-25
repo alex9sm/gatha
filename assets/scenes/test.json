@@ -1,6 +1,7 @@
 {
   "assets": [
-    "assets/models/monkey.gltf"
+    "assets/models/monkey.gltf",
+    "assets/models/box/box.gltf"
   ],
   "entities": [
     {
@@ -26,6 +27,14 @@
         "scale": [1.5, 1.5, 1.5]
       },
       "mesh_instance": { "asset": "monkey" }
+    },
+    {
+      "transform": {
+        "position": [0, 0, -3],
+        "rotation": [0, 0, 0],
+        "scale": [1, 1, 1]
+      },
+      "mesh_instance": { "asset": "box" }
     }
   ]
 }

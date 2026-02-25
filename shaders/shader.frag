@@ -1,7 +1,11 @@
 #version 450 core
 
-  out vec4 frag_color;
+in vec2 v_uv;
 
-  void main() {
-      frag_color = vec4(1.0, 0.5, 0.2, 1.0);
-  }
+uniform sampler2D u_albedo;
+
+out vec4 frag_color;
+
+void main() {
+	frag_color = texture(u_albedo, v_uv);
+}

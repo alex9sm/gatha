@@ -10,6 +10,7 @@ namespace asset {
 		char          name[64];
 		char          path[256];
 		opengl::Mesh  mesh;
+		opengl::GLuint texture;
 		AABB          bounds;
 		u32           vertex_count;
 		u32           index_count;

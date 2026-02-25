@@ -61,6 +61,14 @@ namespace opengl {
     PFNGLUNIFORMMATRIX4FVPROC    glUniformMatrix4fv = nullptr;
     PFNGLNAMEDBUFFERSUBDATAPROC  glNamedBufferSubData = nullptr;
     PFNGLUNIFORM1UIPROC          glUniform1ui = nullptr;
+    PFNGLUNIFORM1IPROC           glUniform1i = nullptr;
+    PFNGLCREATETEXTURESPROC      glCreateTextures = nullptr;
+    PFNGLTEXTURESTORAGE2DPROC    glTextureStorage2D = nullptr;
+    PFNGLTEXTURESUBIMAGE2DPROC   glTextureSubImage2D = nullptr;
+    PFNGLTEXTUREPARAMETERIPROC   glTextureParameteri = nullptr;
+    PFNGLGENERATETEXTUREMIPMAPPROC glGenerateTextureMipmap = nullptr;
+    PFNGLBINDTEXTUREUNITPROC     glBindTextureUnit = nullptr;
+    PFNGLDELETETEXTURESPROC      glDeleteTextures = nullptr;
 
 	namespace {
 
@@ -135,6 +143,14 @@ namespace opengl {
         glUniformMatrix4fv = (PFNGLUNIFORMMATRIX4FVPROC)get_gl_proc("glUniformMatrix4fv");
         glNamedBufferSubData = (PFNGLNAMEDBUFFERSUBDATAPROC)get_gl_proc("glNamedBufferSubData");
         glUniform1ui = (PFNGLUNIFORM1UIPROC)get_gl_proc("glUniform1ui");
+        glUniform1i = (PFNGLUNIFORM1IPROC)get_gl_proc("glUniform1i");
+        glCreateTextures = (PFNGLCREATETEXTURESPROC)get_gl_proc("glCreateTextures");
+        glTextureStorage2D = (PFNGLTEXTURESTORAGE2DPROC)get_gl_proc("glTextureStorage2D");
+        glTextureSubImage2D = (PFNGLTEXTURESUBIMAGE2DPROC)get_gl_proc("glTextureSubImage2D");
+        glTextureParameteri = (PFNGLTEXTUREPARAMETERIPROC)get_gl_proc("glTextureParameteri");
+        glGenerateTextureMipmap = (PFNGLGENERATETEXTUREMIPMAPPROC)get_gl_proc("glGenerateTextureMipmap");
+        glBindTextureUnit = (PFNGLBINDTEXTUREUNITPROC)get_gl_proc("glBindTextureUnit");
+        glDeleteTextures = (PFNGLDELETETEXTURESPROC)GetProcAddress(opengl_dll, "glDeleteTextures");
 
         return true;
     }
