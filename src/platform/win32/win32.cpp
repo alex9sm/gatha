@@ -45,6 +45,11 @@ namespace {
     using MenuCallback = void (*)(int action);
     MenuCallback menu_callback = nullptr;
 
+    const arr::Array<file::FileEntry>* asset_entries = nullptr;
+    int asset_scroll_offset = 0;
+    constexpr int ASSET_ITEM_HEIGHT = 18;
+    constexpr int ASSET_INDENT = 12;
+
 }
 
 static platform::Key vk_to_key(WPARAM vk) {
@@ -378,6 +383,28 @@ static LRESULT CALLBACK panel_proc(HWND hwnd, UINT message, WPARAM wParam, LPARA
 
             RECT assets_section = { 8, mid_y + 8, rc.right - 8, mid_y + 24 };
             DrawTextA(hdc, "Assets", -1, &assets_section, DT_LEFT | DT_SINGLELINE);
+
+            if (asset_entries && asset_entries->count > 0) {
+                int list_top = mid_y + 28;
+                int list_bottom = rc.bottom;
+                int visible_count = (list_bottom - list_top) / ASSET_ITEM_HEIGHT;
+
+                for (int i = 0; i < visible_count && (asset_scroll_offset + i) < (int)asset_entries->count; i++) {
+                    const file::FileEntry& e = asset_entries->data[asset_scroll_offset + i];
+                    int y = list_top + i * ASSET_ITEM_HEIGHT;
+                    int x = 8 + (int)e.depth * ASSET_INDENT;
+
+                    if (e.is_file) {
+                        SetTextColor(hdc, RGB(180, 180, 180));
+                    } else {
+                        SetTextColor(hdc, RGB(220, 200, 120));
+                    }
+
+                    RECT item_rect = { x, y, rc.right - 4, y + ASSET_ITEM_HEIGHT };
+                    DrawTextA(hdc, e.name, -1, &item_rect, DT_LEFT | DT_SINGLELINE | DT_VCENTER);
+                }
+                SetTextColor(hdc, RGB(200, 200, 200));
+            }
         } else if (panel_id == PANEL_ID_RIGHT) {
             RECT fps_rect = { 8, 8, rc.right - 8, 24 };
             DrawTextA(hdc, fps_text, -1, &fps_rect, DT_LEFT | DT_SINGLELINE);
@@ -399,6 +426,21 @@ static LRESULT CALLBACK panel_proc(HWND hwnd, UINT message, WPARAM wParam, LPARA
         SelectObject(hdc, old_font);
         DeleteObject(font);
         EndPaint(hwnd, &ps);
+        return 0;
+    }
+
+    case WM_MOUSEWHEEL: {
+        int panel_id = (int)GetWindowLongPtrA(hwnd, GWLP_USERDATA);
+        if (panel_id == PANEL_ID_LEFT && asset_entries && asset_entries->count > 0) {
+            int delta = GET_WHEEL_DELTA_WPARAM(wParam);
+            int scroll_lines = delta / 120;
+            asset_scroll_offset -= scroll_lines * 3;
+            if (asset_scroll_offset < 0) asset_scroll_offset = 0;
+            int max_offset = (int)asset_entries->count - 1;
+            if (max_offset < 0) max_offset = 0;
+            if (asset_scroll_offset > max_offset) asset_scroll_offset = max_offset;
+            InvalidateRect(hwnd, nullptr, FALSE);
+        }
         return 0;
     }
 
@@ -528,6 +570,14 @@ namespace platform {
         if (!GetSaveFileNameA(&ofn)) return false;
         str::copy(out_path, file, max_len);
         return true;
+    }
+
+    void editor_set_asset_entries(const arr::Array<file::FileEntry>* entries) {
+        asset_entries = entries;
+        asset_scroll_offset = 0;
+        if (left_panel_hwnd && editor_mode) {
+            InvalidateRect(left_panel_hwnd, nullptr, FALSE);
+        }
     }
 
     void editor_set_fps(f32 fps, f32 frame_time_ms) {

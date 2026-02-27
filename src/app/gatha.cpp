@@ -12,6 +12,7 @@
 #include "../platform/platform.hpp"
 #include "../asset/asset.hpp"
 #include "../ecs/world.hpp"
+#include "../core/file.hpp"
 #include "../scene/scene.hpp"
 
 namespace {
@@ -35,6 +36,8 @@ namespace {
 		u32 offset;
 		u32 count;
 	};
+
+	arr::Array<file::FileEntry> asset_file_entries = {};
 }
 
 static void on_menu(int action) {
@@ -90,6 +93,9 @@ bool init() {
 	ecs::world_init(&world);
 
 	camera_init(&cam, { 0.0f, 1.0f, 5.0f }, 5.0f, 0.002f);
+
+	file::scan_directory("assets", &asset_file_entries);
+	platform::editor_set_asset_entries(&asset_file_entries);
 
 	return true;
 }
@@ -250,6 +256,8 @@ void render() {
 
 void shutdown() {
 	platform::set_mouse_captured(false);
+	platform::editor_set_asset_entries(nullptr);
+	arr::array_destroy(&asset_file_entries);
 	scene::unload(&current_scene, &world);
 	ecs::world_destroy(&world);
 	opengl::glDeleteBuffers(1, &transform_ssbo);

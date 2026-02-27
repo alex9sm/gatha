@@ -1,5 +1,6 @@
 #pragma once
 #include "../core/types.hpp"
+#include "../core/file.hpp"
 
 namespace platform {
 
@@ -34,6 +35,8 @@ namespace platform {
     void editor_set_menu_callback(void (*callback)(int));
     bool editor_open_file_dialog(char* out_path, u32 max_len);
     bool editor_save_file_dialog(char* out_path, u32 max_len);
+
+    void editor_set_asset_entries(const arr::Array<file::FileEntry>* entries);
 
     constexpr int MENU_FILE_SAVE    = 40001;
     constexpr int MENU_FILE_SAVE_AS = 40002;
