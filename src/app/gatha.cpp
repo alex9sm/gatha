@@ -40,6 +40,23 @@ namespace {
 	arr::Array<file::FileEntry> asset_file_entries = {};
 }
 
+static void on_asset_double_click(const char* path) {
+	i32 id = asset::load(path);
+	if (id < 0) return;
+
+	ecs::Entity e = ecs::pool_create(&world.pool);
+	if (e == ecs::INVALID_ENTITY) return;
+
+	ecs::Transform t = {};
+	t.position = { 0.0f, 0.0f, 0.0f };
+	t.scale = { 1.0f, 1.0f, 1.0f };
+	t.local_to_world = mat4_identity();
+	ecs::store_add(&world.transforms, e, t);
+	ecs::store_add(&world.mesh_instances, e, { (u32)id });
+
+	arr::array_push(&current_scene.entities, e);
+}
+
 static void on_menu(int action) {
 	if (action == platform::MENU_FILE_SAVE) {
 		if (current_scene.path[0]) {
@@ -73,6 +90,7 @@ static mat4 transform_to_mat4(const ecs::Transform& t) {
 bool init() {
 	platform::editor_init();
 	platform::editor_set_menu_callback(on_menu);
+	platform::editor_set_asset_callback(on_asset_double_click);
 
 	u32 w, h;
 	platform::get_paint_field_size(&w, &h);

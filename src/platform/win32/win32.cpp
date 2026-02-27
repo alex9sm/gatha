@@ -50,6 +50,13 @@ namespace {
     constexpr int ASSET_ITEM_HEIGHT = 18;
     constexpr int ASSET_INDENT = 12;
 
+    using AssetCallback = void (*)(const char* path);
+    AssetCallback asset_callback = nullptr;
+
+    int asset_hovered_index = -1;
+    int asset_selected_index = -1;
+    bool asset_tracking_mouse = false;
+
 }
 
 static platform::Key vk_to_key(WPARAM vk) {
@@ -346,6 +353,19 @@ static LRESULT CALLBACK viewport_proc(HWND hwnd, UINT message, WPARAM wParam, LP
     }
 }
 
+static int asset_hit_test(HWND hwnd, int mouse_y) {
+    if (!asset_entries || asset_entries->count == 0) return -1;
+    RECT rc;
+    GetClientRect(hwnd, &rc);
+    int mid_y = (rc.bottom - rc.top) / 2;
+    int list_top = mid_y + 28;
+    if (mouse_y < list_top) return -1;
+    int index = (mouse_y - list_top) / ASSET_ITEM_HEIGHT + asset_scroll_offset;
+    if (index < 0 || index >= (int)asset_entries->count) return -1;
+    if (!asset_entries->data[index].is_file) return -1;
+    return index;
+}
+
 static LRESULT CALLBACK panel_proc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam) {
     switch (message) {
     case WM_PAINT: {
@@ -390,11 +410,22 @@ static LRESULT CALLBACK panel_proc(HWND hwnd, UINT message, WPARAM wParam, LPARA
                 int visible_count = (list_bottom - list_top) / ASSET_ITEM_HEIGHT;
 
                 for (int i = 0; i < visible_count && (asset_scroll_offset + i) < (int)asset_entries->count; i++) {
-                    const file::FileEntry& e = asset_entries->data[asset_scroll_offset + i];
+                    int abs_index = asset_scroll_offset + i;
+                    const file::FileEntry& e = asset_entries->data[abs_index];
                     int y = list_top + i * ASSET_ITEM_HEIGHT;
                     int x = 8 + (int)e.depth * ASSET_INDENT;
 
                     if (e.is_file) {
+                        RECT row_rect = { 0, y, rc.right, y + ASSET_ITEM_HEIGHT };
+                        if (abs_index == asset_selected_index) {
+                            HBRUSH sel = CreateSolidBrush(RGB(60, 80, 120));
+                            FillRect(hdc, &row_rect, sel);
+                            DeleteObject(sel);
+                        } else if (abs_index == asset_hovered_index) {
+                            HBRUSH hov = CreateSolidBrush(RGB(60, 60, 60));
+                            FillRect(hdc, &row_rect, hov);
+                            DeleteObject(hov);
+                        }
                         SetTextColor(hdc, RGB(180, 180, 180));
                     } else {
                         SetTextColor(hdc, RGB(220, 200, 120));
@@ -426,6 +457,64 @@ static LRESULT CALLBACK panel_proc(HWND hwnd, UINT message, WPARAM wParam, LPARA
         SelectObject(hdc, old_font);
         DeleteObject(font);
         EndPaint(hwnd, &ps);
+        return 0;
+    }
+
+    case WM_MOUSEMOVE: {
+        int panel_id = (int)GetWindowLongPtrA(hwnd, GWLP_USERDATA);
+        if (panel_id == PANEL_ID_LEFT) {
+            if (!asset_tracking_mouse) {
+                TRACKMOUSEEVENT tme = {};
+                tme.cbSize = sizeof(tme);
+                tme.dwFlags = TME_LEAVE;
+                tme.hwndTrack = hwnd;
+                TrackMouseEvent(&tme);
+                asset_tracking_mouse = true;
+            }
+            int mouse_y = (int)(short)HIWORD(lParam);
+            int new_hover = asset_hit_test(hwnd, mouse_y);
+            if (new_hover != asset_hovered_index) {
+                asset_hovered_index = new_hover;
+                InvalidateRect(hwnd, nullptr, FALSE);
+            }
+        }
+        return 0;
+    }
+
+    case WM_MOUSELEAVE: {
+        asset_tracking_mouse = false;
+        if (asset_hovered_index != -1) {
+            asset_hovered_index = -1;
+            InvalidateRect(hwnd, nullptr, FALSE);
+        }
+        return 0;
+    }
+
+    case WM_LBUTTONDOWN: {
+        int panel_id = (int)GetWindowLongPtrA(hwnd, GWLP_USERDATA);
+        if (panel_id == PANEL_ID_LEFT) {
+            int mouse_y = (int)(short)HIWORD(lParam);
+            int index = asset_hit_test(hwnd, mouse_y);
+            if (index != asset_selected_index) {
+                asset_selected_index = index;
+                InvalidateRect(hwnd, nullptr, FALSE);
+            }
+        }
+        return 0;
+    }
+
+    case WM_LBUTTONDBLCLK: {
+        int panel_id = (int)GetWindowLongPtrA(hwnd, GWLP_USERDATA);
+        if (panel_id == PANEL_ID_LEFT && asset_callback) {
+            int mouse_y = (int)(short)HIWORD(lParam);
+            int index = asset_hit_test(hwnd, mouse_y);
+            if (index >= 0) {
+                const file::FileEntry& e = asset_entries->data[index];
+                if (str::ends_with(e.name, ".gltf")) {
+                    asset_callback(e.path);
+                }
+            }
+        }
         return 0;
     }
 
@@ -481,7 +570,7 @@ namespace platform {
     void editor_init() {
         WNDCLASSEXA panel_class = {};
         panel_class.cbSize = sizeof(WNDCLASSEXA);
-        panel_class.style = CS_HREDRAW | CS_VREDRAW;
+        panel_class.style = CS_HREDRAW | CS_VREDRAW | CS_DBLCLKS;
         panel_class.lpfnWndProc = panel_proc;
         panel_class.hInstance = hInstance;
         panel_class.hCursor = LoadCursor(nullptr, IDC_ARROW);
@@ -570,6 +659,10 @@ namespace platform {
         if (!GetSaveFileNameA(&ofn)) return false;
         str::copy(out_path, file, max_len);
         return true;
+    }
+
+    void editor_set_asset_callback(void (*callback)(const char* path)) {
+        asset_callback = callback;
     }
 
     void editor_set_asset_entries(const arr::Array<file::FileEntry>* entries) {

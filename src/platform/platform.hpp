@@ -37,6 +37,7 @@ namespace platform {
     bool editor_save_file_dialog(char* out_path, u32 max_len);
 
     void editor_set_asset_entries(const arr::Array<file::FileEntry>* entries);
+    void editor_set_asset_callback(void (*callback)(const char* path));
 
     constexpr int MENU_FILE_SAVE    = 40001;
     constexpr int MENU_FILE_SAVE_AS = 40002;
