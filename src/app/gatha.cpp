@@ -88,12 +88,8 @@ bool init() {
 		opengl::GL_DYNAMIC_STORAGE_BIT);
 
 	ecs::world_init(&world);
-	scene::load(&current_scene, "assets/scenes/test.json", &world);
 
 	camera_init(&cam, { 0.0f, 1.0f, 5.0f }, 5.0f, 0.002f);
-	if (!platform::is_editor_mode()) {
-		platform::set_mouse_captured(true);
-	}
 
 	return true;
 }
@@ -116,9 +112,9 @@ void update() {
 	static f32 esc_cooldown = 0.0f;
 	esc_cooldown -= dt;
 	if (platform::is_key_down(platform::KEY_ESCAPE) && esc_cooldown <= 0.0f) {
-		static bool captured = true;
-		captured = !captured;
-		platform::set_mouse_captured(captured);
+		if (platform::is_mouse_captured()) {
+			platform::set_mouse_captured(false);
+		}
 		esc_cooldown = 0.3f;
 	}
 
@@ -135,7 +131,9 @@ void update() {
 		}
 	}
 
-	camera_update(&cam, dt);
+	if (platform::is_mouse_captured()) {
+		camera_update(&cam, dt);
+	}
 
 	for (usize i = 0; i < world.transforms.data.count; i++) {
 		world.transforms.data.data[i].local_to_world = transform_to_mat4(world.transforms.data.data[i]);
@@ -143,10 +141,10 @@ void update() {
 }
 
 void render() {
-	renderer::begin_frame();
-
 	u32 w, h;
 	platform::get_paint_field_size(&w, &h);
+	renderer::on_resize(w, h);
+	renderer::begin_frame();
 	f32 aspect = (h > 0) ? (f32)w / (f32)h : 1.0f;
 	mat4 view = camera_get_view(&cam);
 	mat4 proj = mat4_perspective(to_radians(60.0f), aspect, 0.1f, 1000.0f);

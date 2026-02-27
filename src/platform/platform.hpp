@@ -25,6 +25,7 @@ namespace platform {
     bool is_key_down(Key key);
     void get_mouse_delta(f32* dx, f32* dy);
     void set_mouse_captured(bool captured);
+    bool is_mouse_captured();
 
     void editor_init();
     void editor_toggle();

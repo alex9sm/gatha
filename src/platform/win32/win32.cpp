@@ -91,6 +91,7 @@ static void sample_mouse() {
 static bool register_window_class(HINSTANCE hInst);
 static bool create_main_window(HINSTANCE hInst, int nCmdShow);
 static LRESULT CALLBACK window_proc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
+static LRESULT CALLBACK viewport_proc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
 static LRESULT CALLBACK panel_proc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam);
 static INT_PTR CALLBACK about_dialog_proc(HWND hDlg, UINT message, WPARAM wParam, LPARAM lParam);
 static void editor_layout();
@@ -223,6 +224,10 @@ namespace platform {
         }
     }
 
+    bool is_mouse_captured() {
+        return mouse_captured;
+    }
+
 }
 
 int APIENTRY wWinMain(
@@ -321,6 +326,19 @@ static LRESULT CALLBACK window_proc(HWND hWnd, UINT message, WPARAM wParam, LPAR
     }
 
     return 0;
+}
+
+static LRESULT CALLBACK viewport_proc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam) {
+    switch (message) {
+    case WM_LBUTTONDOWN:
+        if (!mouse_captured) {
+            platform::set_mouse_captured(true);
+        }
+        return 0;
+
+    default:
+        return DefWindowProcA(hwnd, message, wParam, lParam);
+    }
 }
 
 static LRESULT CALLBACK panel_proc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam) {
@@ -431,7 +449,7 @@ namespace platform {
         WNDCLASSEXA vp_class = {};
         vp_class.cbSize = sizeof(WNDCLASSEXA);
         vp_class.style = CS_OWNDC;
-        vp_class.lpfnWndProc = DefWindowProcA;
+        vp_class.lpfnWndProc = viewport_proc;
         vp_class.hInstance = hInstance;
         vp_class.hCursor = LoadCursor(nullptr, IDC_ARROW);
         vp_class.lpszClassName = "GathaViewport";

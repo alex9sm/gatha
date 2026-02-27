@@ -49,7 +49,6 @@ namespace scene {
 			return false;
 		}
 
-		// Load referenced assets
 		json::Value* assets_arr = json::get(root, "assets");
 		u32 asset_count = json::length(assets_arr);
 		for (u32 i = 0; i < asset_count; i++) {
@@ -57,7 +56,6 @@ namespace scene {
 			if (asset_path[0]) asset::load(asset_path);
 		}
 
-		// Spawn entities
 		json::Value* entities_arr = json::get(root, "entities");
 		u32 entity_count = json::length(entities_arr);
 		for (u32 i = 0; i < entity_count; i++) {
@@ -68,7 +66,6 @@ namespace scene {
 			if (e == ecs::INVALID_ENTITY) break;
 			arr::array_push(&scene->entities, e);
 
-			// Transform
 			json::Value* t = json::get(ent_json, "transform");
 			if (t) {
 				ecs::Transform transform = {};
@@ -79,7 +76,6 @@ namespace scene {
 				ecs::store_add(&world->transforms, e, transform);
 			}
 
-			// Mesh instance
 			json::Value* mi = json::get(ent_json, "mesh_instance");
 			if (mi) {
 				const char* asset_name = json::as_string(json::get(mi, "asset"));
@@ -97,10 +93,6 @@ namespace scene {
 		return true;
 	}
 
-	// ---- Scene Save ----
-	// Builds JSON text manually — simpler than a generic JSON writer
-	// since we know the exact structure.
-
 	struct Writer {
 		arr::Array<char> buf;
 		u32 indent;
@@ -116,12 +108,10 @@ namespace scene {
 
 	static void write_number(Writer* w, f64 val) {
 		char tmp[64];
-		// Check if it's effectively an integer
 		if (val == (f64)(i64)val && val >= -1e15 && val <= 1e15) {
 			str::format(tmp, sizeof(tmp), "%lld", (i64)val);
 		} else {
 			str::format(tmp, sizeof(tmp), "%.6f", val);
-			// Trim trailing zeros after decimal point
 			char* dot = nullptr;
 			for (char* p = tmp; *p; p++) { if (*p == '.') dot = p; }
 			if (dot) {
@@ -146,12 +136,10 @@ namespace scene {
 
 		write_raw(&w, "{\n");
 
-		// Collect unique asset paths from mesh instances
 		w.indent = 1;
 		write_indent(&w); write_raw(&w, "\"assets\": [\n");
 		w.indent = 2;
 
-		// Gather unique asset IDs
 		arr::Array<u32> seen_assets = {};
 		for (usize i = 0; i < scene->entities.count; i++) {
 			ecs::Entity e = scene->entities.data[i];
@@ -178,7 +166,6 @@ namespace scene {
 		w.indent = 1;
 		write_indent(&w); write_raw(&w, "],\n");
 
-		// Entities
 		write_indent(&w); write_raw(&w, "\"entities\": [\n");
 		w.indent = 2;
 
@@ -190,7 +177,6 @@ namespace scene {
 
 			bool has_prev = false;
 
-			// Transform
 			if (ecs::store_has(&world->transforms, e)) {
 				const ecs::Transform* t = ecs::store_get(
 					const_cast<ecs::Store<ecs::Transform>*>(&world->transforms), e);
@@ -204,7 +190,6 @@ namespace scene {
 				has_prev = true;
 			}
 
-			// Mesh instance
 			if (ecs::store_has(&world->mesh_instances, e)) {
 				const ecs::MeshInstance* mi = ecs::store_get(
 					const_cast<ecs::Store<ecs::MeshInstance>*>(&world->mesh_instances), e);
