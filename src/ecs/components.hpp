@@ -2,6 +2,7 @@
 
 #include "../core/types.hpp"
 #include "../core/math.hpp"
+#include "ecs.hpp"
 
 namespace ecs {
 
@@ -14,6 +15,11 @@ namespace ecs {
 
 	struct MeshInstance {
 		u32 asset_id;
+	};
+
+	struct HierarchyNode {
+		Entity parent;
+		char   name[64];
 	};
 
 }

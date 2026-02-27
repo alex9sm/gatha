@@ -10,6 +10,33 @@
 
 namespace scene {
 
+	static i32 entity_to_scene_index(const Scene* scene, ecs::Entity e) {
+		for (usize i = 0; i < scene->entities.count; i++) {
+			if (scene->entities.data[i] == e) return (i32)i;
+		}
+		return -1;
+	}
+
+	void make_entity_name(const char* base_name, const ecs::World* world, const Scene* scene, char* out, usize out_size) {
+		u32 count = 0;
+		for (usize i = 0; i < scene->entities.count; i++) {
+			ecs::Entity e = scene->entities.data[i];
+			if (!ecs::store_has(&world->hierarchy, e)) continue;
+			const ecs::HierarchyNode* hn = ecs::store_get(
+				const_cast<ecs::Store<ecs::HierarchyNode>*>(&world->hierarchy), e);
+			if (str::equal(hn->name, base_name)) { count++; continue; }
+			char prefix[68];
+			str::copy(prefix, base_name, sizeof(prefix));
+			str::concat(prefix, ".", sizeof(prefix));
+			if (str::starts_with(hn->name, prefix)) count++;
+		}
+		if (count == 0) {
+			str::copy(out, base_name, out_size);
+		} else {
+			str::format(out, out_size, "%s.%03u", base_name, count);
+		}
+	}
+
 	static void extract_name(const char* filepath, char* out, usize out_size) {
 		const char* last_sep = nullptr;
 		for (const char* p = filepath; *p; p++) {
@@ -58,6 +85,8 @@ namespace scene {
 
 		json::Value* entities_arr = json::get(root, "entities");
 		u32 entity_count = json::length(entities_arr);
+		arr::Array<ecs::Entity> index_to_entity = {};
+
 		for (u32 i = 0; i < entity_count; i++) {
 			json::Value* ent_json = json::at(entities_arr, i);
 			if (!ent_json) continue;
@@ -65,6 +94,7 @@ namespace scene {
 			ecs::Entity e = ecs::pool_create(&world->pool);
 			if (e == ecs::INVALID_ENTITY) break;
 			arr::array_push(&scene->entities, e);
+			arr::array_push(&index_to_entity, e);
 
 			json::Value* t = json::get(ent_json, "transform");
 			if (t) {
@@ -86,7 +116,29 @@ namespace scene {
 					logger::error("scene: entity references unknown asset '%s'", asset_name);
 				}
 			}
+
+			ecs::HierarchyNode hn = {};
+			hn.parent = ecs::INVALID_ENTITY;
+
+			json::Value* parent_val = json::get(ent_json, "parent");
+			if (parent_val) {
+				i32 parent_idx = (i32)json::as_number(parent_val, -1.0);
+				if (parent_idx >= 0 && parent_idx < (i32)index_to_entity.count) {
+					hn.parent = index_to_entity.data[parent_idx];
+				}
+			}
+
+			const char* base = "Entity";
+			if (ecs::store_has(&world->mesh_instances, e)) {
+				ecs::MeshInstance* mesh_inst = ecs::store_get(&world->mesh_instances, e);
+				asset::Asset* a = asset::get(mesh_inst->asset_id);
+				if (a) base = a->name;
+			}
+			make_entity_name(base, world, scene, hn.name, sizeof(hn.name));
+			ecs::store_add(&world->hierarchy, e, hn);
 		}
+
+		arr::array_destroy(&index_to_entity);
 
 		json::destroy(root);
 		logger::info("scene: loaded '%s' (%u entities)", filepath, (u32)scene->entities.count);
@@ -204,6 +256,23 @@ namespace scene {
 				}
 			}
 
+			if (ecs::store_has(&world->hierarchy, e)) {
+				const ecs::HierarchyNode* hn = ecs::store_get(
+					const_cast<ecs::Store<ecs::HierarchyNode>*>(&world->hierarchy), e);
+				if (hn->parent != ecs::INVALID_ENTITY) {
+					i32 parent_idx = entity_to_scene_index(scene, hn->parent);
+					if (parent_idx >= 0) {
+						if (has_prev) write_raw(&w, ",");
+						write_raw(&w, "\n");
+						write_indent(&w); write_raw(&w, "\"parent\": ");
+						char tmp[16];
+						str::format(tmp, sizeof(tmp), "%d", parent_idx);
+						write_raw(&w, tmp);
+						has_prev = true;
+					}
+				}
+			}
+
 			write_raw(&w, "\n");
 			w.indent = 2;
 			write_indent(&w); write_raw(&w, "}");
@@ -227,6 +296,7 @@ namespace scene {
 	void unload(Scene* scene, ecs::World* world) {
 		for (usize i = 0; i < scene->entities.count; i++) {
 			ecs::Entity e = scene->entities.data[i];
+			ecs::store_remove(&world->hierarchy, e);
 			ecs::store_remove(&world->transforms, e);
 			ecs::store_remove(&world->mesh_instances, e);
 			ecs::pool_release(&world->pool, e);

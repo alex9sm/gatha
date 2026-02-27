@@ -1,6 +1,7 @@
 #pragma once
 #include "../core/types.hpp"
 #include "../core/file.hpp"
+#include "../ecs/ecs.hpp"
 
 namespace platform {
 
@@ -38,6 +39,16 @@ namespace platform {
 
     void editor_set_asset_entries(const arr::Array<file::FileEntry>* entries);
     void editor_set_asset_callback(void (*callback)(const char* path));
+
+    struct EntityEntry {
+        ecs::Entity entity;
+        char        name[64];
+        u32         depth;
+    };
+
+    void editor_set_entity_entries(const arr::Array<EntityEntry>* entries);
+    void editor_set_entity_callback(void (*callback)(ecs::Entity e));
+    void editor_set_parent_callback(void (*callback)(ecs::Entity child, ecs::Entity parent));
 
     constexpr int MENU_FILE_SAVE    = 40001;
     constexpr int MENU_FILE_SAVE_AS = 40002;

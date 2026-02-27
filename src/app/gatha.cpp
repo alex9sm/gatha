@@ -38,6 +38,90 @@ namespace {
 	};
 
 	arr::Array<file::FileEntry> asset_file_entries = {};
+	arr::Array<platform::EntityEntry> entity_display_list = {};
+}
+
+static bool is_ancestor(ecs::Entity ancestor, ecs::Entity descendant) {
+	ecs::Entity cur = descendant;
+	for (int depth = 0; depth < 8; depth++) {
+		ecs::HierarchyNode* hn = ecs::store_get(&world.hierarchy, cur);
+		if (!hn || hn->parent == ecs::INVALID_ENTITY) return false;
+		if (hn->parent == ancestor) return true;
+		cur = hn->parent;
+	}
+	return false;
+}
+
+static i32 scene_index_of(ecs::Entity e) {
+	for (usize i = 0; i < current_scene.entities.count; i++) {
+		if (current_scene.entities.data[i] == e) return (i32)i;
+	}
+	return -1;
+}
+
+static void ensure_child_after_parent(ecs::Entity child, ecs::Entity parent) {
+	i32 child_idx = scene_index_of(child);
+	i32 parent_idx = scene_index_of(parent);
+	if (child_idx < 0 || parent_idx < 0) return;
+	if (child_idx > parent_idx) return;
+
+	// Remove child from current position and insert after parent
+	ecs::Entity tmp = current_scene.entities.data[child_idx];
+	for (i32 i = child_idx; i < parent_idx; i++) {
+		current_scene.entities.data[i] = current_scene.entities.data[i + 1];
+	}
+	current_scene.entities.data[parent_idx] = tmp;
+}
+
+static void rebuild_entity_display_list() {
+	arr::array_clear(&entity_display_list);
+	for (usize i = 0; i < current_scene.entities.count; i++) {
+		ecs::Entity e = current_scene.entities.data[i];
+		ecs::HierarchyNode* hn = ecs::store_get(&world.hierarchy, e);
+
+		platform::EntityEntry entry = {};
+		entry.entity = e;
+		entry.depth = 0;
+
+		if (hn) {
+			str::copy(entry.name, hn->name, sizeof(entry.name));
+			ecs::Entity cur = hn->parent;
+			while (cur != ecs::INVALID_ENTITY && entry.depth < 8) {
+				entry.depth++;
+				ecs::HierarchyNode* phn = ecs::store_get(&world.hierarchy, cur);
+				cur = phn ? phn->parent : ecs::INVALID_ENTITY;
+			}
+		}
+		else {
+			str::copy(entry.name, "Entity", sizeof(entry.name));
+		}
+
+		arr::array_push(&entity_display_list, entry);
+	}
+	platform::editor_set_entity_entries(&entity_display_list);
+}
+
+static void on_parent(ecs::Entity child, ecs::Entity parent) {
+	if (child == parent) return;
+	if (is_ancestor(child, parent)) return;
+
+	ecs::HierarchyNode* hn = ecs::store_get(&world.hierarchy, child);
+	if (!hn) return;
+
+	// Check depth won't exceed 8
+	u32 parent_depth = 0;
+	ecs::Entity cur = parent;
+	while (cur != ecs::INVALID_ENTITY && parent_depth < 8) {
+		ecs::HierarchyNode* phn = ecs::store_get(&world.hierarchy, cur);
+		if (!phn || phn->parent == ecs::INVALID_ENTITY) break;
+		parent_depth++;
+		cur = phn->parent;
+	}
+	if (parent_depth >= 7) return;
+
+	hn->parent = parent;
+	ensure_child_after_parent(child, parent);
+	rebuild_entity_display_list();
 }
 
 static void on_asset_double_click(const char* path) {
@@ -54,7 +138,15 @@ static void on_asset_double_click(const char* path) {
 	ecs::store_add(&world.transforms, e, t);
 	ecs::store_add(&world.mesh_instances, e, { (u32)id });
 
+	ecs::HierarchyNode hn = {};
+	hn.parent = ecs::INVALID_ENTITY;
+	asset::Asset* a = asset::get((u32)id);
+	const char* base = a ? a->name : "Entity";
+	scene::make_entity_name(base, &world, &current_scene, hn.name, sizeof(hn.name));
+	ecs::store_add(&world.hierarchy, e, hn);
+
 	arr::array_push(&current_scene.entities, e);
+	rebuild_entity_display_list();
 }
 
 static void on_menu(int action) {
@@ -74,6 +166,7 @@ static void on_menu(int action) {
 			scene::unload(&current_scene, &world);
 			asset::shutdown();
 			scene::load(&current_scene, path, &world);
+			rebuild_entity_display_list();
 		}
 	}
 }
@@ -91,6 +184,7 @@ bool init() {
 	platform::editor_init();
 	platform::editor_set_menu_callback(on_menu);
 	platform::editor_set_asset_callback(on_asset_double_click);
+	platform::editor_set_parent_callback(on_parent);
 
 	u32 w, h;
 	platform::get_paint_field_size(&w, &h);
@@ -161,6 +255,19 @@ void update() {
 
 	for (usize i = 0; i < world.transforms.data.count; i++) {
 		world.transforms.data.data[i].local_to_world = transform_to_mat4(world.transforms.data.data[i]);
+	}
+
+	// Parent chain: parents precede children in scene entity list
+	for (usize i = 0; i < current_scene.entities.count; i++) {
+		ecs::Entity e = current_scene.entities.data[i];
+		ecs::HierarchyNode* hn = ecs::store_get(&world.hierarchy, e);
+		if (!hn || hn->parent == ecs::INVALID_ENTITY) continue;
+
+		ecs::Transform* t = ecs::store_get(&world.transforms, e);
+		ecs::Transform* pt = ecs::store_get(&world.transforms, hn->parent);
+		if (t && pt) {
+			t->local_to_world = pt->local_to_world * t->local_to_world;
+		}
 	}
 }
 
@@ -274,6 +381,8 @@ void render() {
 
 void shutdown() {
 	platform::set_mouse_captured(false);
+	platform::editor_set_entity_entries(nullptr);
+	arr::array_destroy(&entity_display_list);
 	platform::editor_set_asset_entries(nullptr);
 	arr::array_destroy(&asset_file_entries);
 	scene::unload(&current_scene, &world);

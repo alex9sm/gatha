@@ -55,7 +55,20 @@ namespace {
 
     int asset_hovered_index = -1;
     int asset_selected_index = -1;
-    bool asset_tracking_mouse = false;
+    bool panel_tracking_mouse = false;
+
+    const arr::Array<platform::EntityEntry>* entity_entries = nullptr;
+    int entity_scroll_offset = 0;
+    int entity_hovered_index = -1;
+    int entity_selected_index = -1;
+    constexpr int ENTITY_ITEM_HEIGHT = 18;
+    constexpr int ENTITY_INDENT = 12;
+
+    using EntityCallback = void (*)(ecs::Entity e);
+    EntityCallback entity_callback = nullptr;
+
+    using ParentCallback = void (*)(ecs::Entity child, ecs::Entity parent);
+    ParentCallback parent_callback = nullptr;
 
 }
 
@@ -353,6 +366,19 @@ static LRESULT CALLBACK viewport_proc(HWND hwnd, UINT message, WPARAM wParam, LP
     }
 }
 
+static int entity_hit_test(HWND hwnd, int mouse_y) {
+    if (!entity_entries || entity_entries->count == 0) return -1;
+    RECT rc;
+    GetClientRect(hwnd, &rc);
+    int mid_y = (rc.bottom - rc.top) / 2;
+    int list_top = 28;
+    int list_bottom = mid_y - 4;
+    if (mouse_y < list_top || mouse_y >= list_bottom) return -1;
+    int index = (mouse_y - list_top) / ENTITY_ITEM_HEIGHT + entity_scroll_offset;
+    if (index < 0 || index >= (int)entity_entries->count) return -1;
+    return index;
+}
+
 static int asset_hit_test(HWND hwnd, int mouse_y) {
     if (!asset_entries || asset_entries->count == 0) return -1;
     RECT rc;
@@ -394,6 +420,34 @@ static LRESULT CALLBACK panel_proc(HWND hwnd, UINT message, WPARAM wParam, LPARA
             DrawTextA(hdc, "Entities", -1, &section, DT_LEFT | DT_SINGLELINE);
 
             int mid_y = (rc.bottom - rc.top) / 2;
+
+            if (entity_entries && entity_entries->count > 0) {
+                int list_top = 28;
+                int list_bottom = mid_y - 4;
+                int visible_count = (list_bottom - list_top) / ENTITY_ITEM_HEIGHT;
+
+                for (int i = 0; i < visible_count && (entity_scroll_offset + i) < (int)entity_entries->count; i++) {
+                    int abs_index = entity_scroll_offset + i;
+                    const platform::EntityEntry& entry = entity_entries->data[abs_index];
+                    int y = list_top + i * ENTITY_ITEM_HEIGHT;
+                    int x = 8 + (int)entry.depth * ENTITY_INDENT;
+
+                    RECT row_rect = { 0, y, rc.right, y + ENTITY_ITEM_HEIGHT };
+                    if (abs_index == entity_selected_index) {
+                        HBRUSH sel = CreateSolidBrush(RGB(60, 80, 120));
+                        FillRect(hdc, &row_rect, sel);
+                        DeleteObject(sel);
+                    } else if (abs_index == entity_hovered_index) {
+                        HBRUSH hov = CreateSolidBrush(RGB(60, 60, 60));
+                        FillRect(hdc, &row_rect, hov);
+                        DeleteObject(hov);
+                    }
+
+                    SetTextColor(hdc, RGB(200, 200, 200));
+                    RECT item_rect = { x, y, rc.right - 4, y + ENTITY_ITEM_HEIGHT };
+                    DrawTextA(hdc, entry.name, -1, &item_rect, DT_LEFT | DT_SINGLELINE | DT_VCENTER);
+                }
+            }
             HPEN pen = CreatePen(PS_SOLID, 1, RGB(80, 80, 80));
             HPEN old_pen = (HPEN)SelectObject(hdc, pen);
             MoveToEx(hdc, 4, mid_y, nullptr);
@@ -463,30 +517,40 @@ static LRESULT CALLBACK panel_proc(HWND hwnd, UINT message, WPARAM wParam, LPARA
     case WM_MOUSEMOVE: {
         int panel_id = (int)GetWindowLongPtrA(hwnd, GWLP_USERDATA);
         if (panel_id == PANEL_ID_LEFT) {
-            if (!asset_tracking_mouse) {
+            if (!panel_tracking_mouse) {
                 TRACKMOUSEEVENT tme = {};
                 tme.cbSize = sizeof(tme);
                 tme.dwFlags = TME_LEAVE;
                 tme.hwndTrack = hwnd;
                 TrackMouseEvent(&tme);
-                asset_tracking_mouse = true;
+                panel_tracking_mouse = true;
             }
             int mouse_y = (int)(short)HIWORD(lParam);
-            int new_hover = asset_hit_test(hwnd, mouse_y);
-            if (new_hover != asset_hovered_index) {
-                asset_hovered_index = new_hover;
-                InvalidateRect(hwnd, nullptr, FALSE);
+            bool dirty = false;
+
+            int new_entity_hover = entity_hit_test(hwnd, mouse_y);
+            if (new_entity_hover != entity_hovered_index) {
+                entity_hovered_index = new_entity_hover;
+                dirty = true;
             }
+
+            int new_asset_hover = asset_hit_test(hwnd, mouse_y);
+            if (new_asset_hover != asset_hovered_index) {
+                asset_hovered_index = new_asset_hover;
+                dirty = true;
+            }
+
+            if (dirty) InvalidateRect(hwnd, nullptr, FALSE);
         }
         return 0;
     }
 
     case WM_MOUSELEAVE: {
-        asset_tracking_mouse = false;
-        if (asset_hovered_index != -1) {
-            asset_hovered_index = -1;
-            InvalidateRect(hwnd, nullptr, FALSE);
-        }
+        panel_tracking_mouse = false;
+        bool dirty = false;
+        if (entity_hovered_index != -1) { entity_hovered_index = -1; dirty = true; }
+        if (asset_hovered_index != -1) { asset_hovered_index = -1; dirty = true; }
+        if (dirty) InvalidateRect(hwnd, nullptr, FALSE);
         return 0;
     }
 
@@ -494,11 +558,30 @@ static LRESULT CALLBACK panel_proc(HWND hwnd, UINT message, WPARAM wParam, LPARA
         int panel_id = (int)GetWindowLongPtrA(hwnd, GWLP_USERDATA);
         if (panel_id == PANEL_ID_LEFT) {
             int mouse_y = (int)(short)HIWORD(lParam);
-            int index = asset_hit_test(hwnd, mouse_y);
-            if (index != asset_selected_index) {
-                asset_selected_index = index;
-                InvalidateRect(hwnd, nullptr, FALSE);
+            bool dirty = false;
+
+            int ent_index = entity_hit_test(hwnd, mouse_y);
+
+            bool ctrl_held = (GetKeyState(VK_CONTROL) & 0x8000) != 0;
+            if (ctrl_held && ent_index >= 0 && entity_selected_index >= 0
+                && ent_index != entity_selected_index && entity_entries && parent_callback) {
+                ecs::Entity child = entity_entries->data[entity_selected_index].entity;
+                ecs::Entity parent = entity_entries->data[ent_index].entity;
+                parent_callback(child, parent);
+                entity_selected_index = -1;
+                dirty = true;
+            } else if (ent_index != entity_selected_index) {
+                entity_selected_index = ent_index;
+                dirty = true;
             }
+
+            int ast_index = asset_hit_test(hwnd, mouse_y);
+            if (ast_index != asset_selected_index) {
+                asset_selected_index = ast_index;
+                dirty = true;
+            }
+
+            if (dirty) InvalidateRect(hwnd, nullptr, FALSE);
         }
         return 0;
     }
@@ -520,15 +603,33 @@ static LRESULT CALLBACK panel_proc(HWND hwnd, UINT message, WPARAM wParam, LPARA
 
     case WM_MOUSEWHEEL: {
         int panel_id = (int)GetWindowLongPtrA(hwnd, GWLP_USERDATA);
-        if (panel_id == PANEL_ID_LEFT && asset_entries && asset_entries->count > 0) {
+        if (panel_id == PANEL_ID_LEFT) {
+            RECT rc;
+            GetClientRect(hwnd, &rc);
+            int mid_y = (rc.bottom - rc.top) / 2;
+
+            POINT pt;
+            GetCursorPos(&pt);
+            ScreenToClient(hwnd, &pt);
+
             int delta = GET_WHEEL_DELTA_WPARAM(wParam);
             int scroll_lines = delta / 120;
-            asset_scroll_offset -= scroll_lines * 3;
-            if (asset_scroll_offset < 0) asset_scroll_offset = 0;
-            int max_offset = (int)asset_entries->count - 1;
-            if (max_offset < 0) max_offset = 0;
-            if (asset_scroll_offset > max_offset) asset_scroll_offset = max_offset;
-            InvalidateRect(hwnd, nullptr, FALSE);
+
+            if (pt.y < mid_y && entity_entries && entity_entries->count > 0) {
+                entity_scroll_offset -= scroll_lines * 3;
+                if (entity_scroll_offset < 0) entity_scroll_offset = 0;
+                int max_offset = (int)entity_entries->count - 1;
+                if (max_offset < 0) max_offset = 0;
+                if (entity_scroll_offset > max_offset) entity_scroll_offset = max_offset;
+                InvalidateRect(hwnd, nullptr, FALSE);
+            } else if (pt.y >= mid_y && asset_entries && asset_entries->count > 0) {
+                asset_scroll_offset -= scroll_lines * 3;
+                if (asset_scroll_offset < 0) asset_scroll_offset = 0;
+                int max_offset = (int)asset_entries->count - 1;
+                if (max_offset < 0) max_offset = 0;
+                if (asset_scroll_offset > max_offset) asset_scroll_offset = max_offset;
+                InvalidateRect(hwnd, nullptr, FALSE);
+            }
         }
         return 0;
     }
@@ -671,6 +772,23 @@ namespace platform {
         if (left_panel_hwnd && editor_mode) {
             InvalidateRect(left_panel_hwnd, nullptr, FALSE);
         }
+    }
+
+    void editor_set_entity_entries(const arr::Array<EntityEntry>* entries) {
+        entity_entries = entries;
+        entity_scroll_offset = 0;
+        entity_selected_index = -1;
+        if (left_panel_hwnd && editor_mode) {
+            InvalidateRect(left_panel_hwnd, nullptr, FALSE);
+        }
+    }
+
+    void editor_set_entity_callback(void (*callback)(ecs::Entity e)) {
+        entity_callback = callback;
+    }
+
+    void editor_set_parent_callback(void (*callback)(ecs::Entity child, ecs::Entity parent)) {
+        parent_callback = callback;
     }
 
     void editor_set_fps(f32 fps, f32 frame_time_ms) {
