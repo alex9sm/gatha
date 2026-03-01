@@ -70,6 +70,13 @@ namespace {
     using ParentCallback = void (*)(ecs::Entity child, ecs::Entity parent);
     ParentCallback parent_callback = nullptr;
 
+    HWND transform_edits[9] = {};
+    bool transform_active = false;
+    constexpr int ID_EDIT_TRANSFORM_BASE = 2000;
+
+    using TransformCallback = void (*)(vec3 pos, vec3 rot, vec3 scale);
+    TransformCallback transform_callback = nullptr;
+
 }
 
 static platform::Key vk_to_key(WPARAM vk) {
@@ -159,6 +166,18 @@ namespace platform {
                 if (msg.message == WM_QUIT) {
                     running = false;
                     return;
+                }
+                if (msg.message == WM_KEYDOWN && msg.wParam == VK_RETURN) {
+                    HWND focus = GetFocus();
+                    bool consumed = false;
+                    for (int i = 0; i < 9; i++) {
+                        if (focus == transform_edits[i]) {
+                            SetFocus(viewport_hwnd);
+                            consumed = true;
+                            break;
+                        }
+                    }
+                    if (consumed) continue;
                 }
                 if (!TranslateAccelerator(hWnd, hAccelTable, &msg)) {
                     TranslateMessage(&msg);
@@ -356,10 +375,25 @@ static LRESULT CALLBACK window_proc(HWND hWnd, UINT message, WPARAM wParam, LPAR
 static LRESULT CALLBACK viewport_proc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam) {
     switch (message) {
     case WM_LBUTTONDOWN:
+        SetFocus(hwnd);
         if (!mouse_captured) {
             platform::set_mouse_captured(true);
         }
         return 0;
+
+    case WM_KEYDOWN:
+    case WM_SYSKEYDOWN: {
+        platform::Key k = vk_to_key(wParam);
+        if (k < platform::KEY_COUNT) key_state[k] = true;
+        return 0;
+    }
+
+    case WM_KEYUP:
+    case WM_SYSKEYUP: {
+        platform::Key k = vk_to_key(wParam);
+        if (k < platform::KEY_COUNT) key_state[k] = false;
+        return 0;
+    }
 
     default:
         return DefWindowProcA(hwnd, message, wParam, lParam);
@@ -506,6 +540,15 @@ static LRESULT CALLBACK panel_proc(HWND hwnd, UINT message, WPARAM wParam, LPARA
 
             RECT prop_rect = { 8, 58, rc.right - 8, 74 };
             DrawTextA(hdc, "Properties", -1, &prop_rect, DT_LEFT | DT_SINGLELINE);
+
+            if (transform_active) {
+                const char* row_labels[3] = { "Position", "Rotation", "Scale" };
+                int rows_y[3] = { 78, 100, 122 };
+                for (int i = 0; i < 3; i++) {
+                    RECT lr = { 8, rows_y[i], 66, rows_y[i] + 18 };
+                    DrawTextA(hdc, row_labels[i], -1, &lr, DT_LEFT | DT_SINGLELINE | DT_VCENTER);
+                }
+            }
         }
 
         SelectObject(hdc, old_font);
@@ -575,6 +618,13 @@ static LRESULT CALLBACK panel_proc(HWND hwnd, UINT message, WPARAM wParam, LPARA
                 dirty = true;
             }
 
+            if (entity_callback) {
+                if (entity_selected_index >= 0 && entity_entries)
+                    entity_callback(entity_entries->data[entity_selected_index].entity);
+                else
+                    entity_callback(ecs::INVALID_ENTITY);
+            }
+
             int ast_index = asset_hit_test(hwnd, mouse_y);
             if (ast_index != asset_selected_index) {
                 asset_selected_index = ast_index;
@@ -634,11 +684,56 @@ static LRESULT CALLBACK panel_proc(HWND hwnd, UINT message, WPARAM wParam, LPARA
         return 0;
     }
 
+    case WM_COMMAND: {
+        int panel_id = (int)GetWindowLongPtrA(hwnd, GWLP_USERDATA);
+        if (panel_id == PANEL_ID_RIGHT && HIWORD(wParam) == EN_KILLFOCUS) {
+            int id = LOWORD(wParam);
+            if (id >= ID_EDIT_TRANSFORM_BASE && id < ID_EDIT_TRANSFORM_BASE + 9 && transform_callback) {
+                char buf[32];
+                f32 vals[9];
+                for (int i = 0; i < 9; i++) {
+                    GetWindowTextA(transform_edits[i], buf, sizeof(buf));
+                    vals[i] = str::str_to_float(buf);
+                }
+                vec3 pos = { vals[0], vals[1], vals[2] };
+                vec3 rot = { vals[3], vals[4], vals[5] };
+                vec3 scale = { vals[6], vals[7], vals[8] };
+                transform_callback(pos, rot, scale);
+            }
+        }
+        return 0;
+    }
+
     case WM_ERASEBKGND:
         return 1;
 
     default:
         return DefWindowProcA(hwnd, message, wParam, lParam);
+    }
+}
+
+static void layout_transform_edits() {
+    // Layout: right panel is 250px wide
+    // Y=78: Position row, Y=100: Rotation row, Y=122: Scale row
+    // Labels drawn in WM_PAINT; edits start after "X " "Y " "Z " labels
+    constexpr int EDIT_W = 52;
+    constexpr int EDIT_H = 18;
+    constexpr int LABEL_W = 62;
+    constexpr int START_X = LABEL_W + 4;
+    constexpr int GAP = 4;
+    int rows_y[3] = { 78, 100, 122 };
+
+    for (int row = 0; row < 3; row++) {
+        for (int col = 0; col < 3; col++) {
+            int x = START_X + col * (EDIT_W + GAP);
+            MoveWindow(transform_edits[row * 3 + col], x, rows_y[row], EDIT_W, EDIT_H, TRUE);
+        }
+    }
+
+    int show = transform_active ? SW_SHOW : SW_HIDE;
+    for (int i = 0; i < 9; i++) {
+        ShowWindow(transform_edits[i], show);
+        EnableWindow(transform_edits[i], transform_active);
     }
 }
 
@@ -659,6 +754,7 @@ static void editor_layout() {
 
         ShowWindow(left_panel_hwnd, SW_SHOW);
         ShowWindow(right_panel_hwnd, SW_SHOW);
+        layout_transform_edits();
     } else {
         ShowWindow(left_panel_hwnd, SW_HIDE);
         ShowWindow(right_panel_hwnd, SW_HIDE);
@@ -700,6 +796,14 @@ namespace platform {
             WS_CHILD | WS_VISIBLE, 0, 0, RIGHT_PANEL_WIDTH, 100,
             hWnd, nullptr, hInstance, nullptr);
         SetWindowLongPtrA(right_panel_hwnd, GWLP_USERDATA, PANEL_ID_RIGHT);
+
+        for (int i = 0; i < 9; i++) {
+            transform_edits[i] = CreateWindowExA(0, "EDIT", "",
+                WS_CHILD | WS_BORDER | ES_LEFT | WS_TABSTOP,
+                0, 0, 50, 18,
+                right_panel_hwnd, (HMENU)(uintptr_t)(ID_EDIT_TRANSFORM_BASE + i),
+                hInstance, nullptr);
+        }
 
         // Menu bar
         menu_bar = CreateMenu();
@@ -800,6 +904,35 @@ namespace platform {
         if (right_panel_hwnd && editor_mode) {
             InvalidateRect(right_panel_hwnd, nullptr, FALSE);
         }
+    }
+
+    void editor_set_transform(vec3 pos, vec3 rot, vec3 scale) {
+        char buf[32];
+        f32 vals[9] = { pos.x, pos.y, pos.z, rot.x, rot.y, rot.z, scale.x, scale.y, scale.z };
+        for (int i = 0; i < 9; i++) {
+            str::float_to_str(buf, sizeof(buf), vals[i]);
+            SetWindowTextA(transform_edits[i], buf);
+        }
+        transform_active = true;
+        layout_transform_edits();
+        if (right_panel_hwnd && editor_mode) {
+            InvalidateRect(right_panel_hwnd, nullptr, FALSE);
+        }
+    }
+
+    void editor_clear_transform() {
+        for (int i = 0; i < 9; i++) {
+            SetWindowTextA(transform_edits[i], "");
+        }
+        transform_active = false;
+        layout_transform_edits();
+        if (right_panel_hwnd && editor_mode) {
+            InvalidateRect(right_panel_hwnd, nullptr, FALSE);
+        }
+    }
+
+    void editor_set_transform_callback(void (*callback)(vec3 pos, vec3 rot, vec3 scale)) {
+        transform_callback = callback;
     }
 
 }

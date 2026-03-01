@@ -16,5 +16,7 @@ namespace str {
 	bool ends_with(const char* str, const char* suffix);
 	int format(char* dst, usize max, const char* fmt, ...);
 	int format_v(char* dst, usize max, const char* fmt, va_list args);
+	int float_to_str(char* buf, usize max, f32 value);
+	f32 str_to_float(const char* s);
 
 }

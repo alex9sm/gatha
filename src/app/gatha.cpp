@@ -36,6 +36,7 @@ namespace {
 
 	arr::Array<file::FileEntry> asset_file_entries = {};
 	arr::Array<platform::EntityEntry> entity_display_list = {};
+	ecs::Entity selected_entity = ecs::INVALID_ENTITY;
 }
 
 static bool is_ancestor(ecs::Entity ancestor, ecs::Entity descendant) {
@@ -121,6 +122,27 @@ static void on_parent(ecs::Entity child, ecs::Entity parent) {
 	rebuild_entity_display_list();
 }
 
+static void on_entity_selected(ecs::Entity e) {
+	selected_entity = e;
+	if (e != ecs::INVALID_ENTITY) {
+		ecs::Transform* t = ecs::store_get(&world.transforms, e);
+		if (t) {
+			platform::editor_set_transform(t->position, t->rotation, t->scale);
+			return;
+		}
+	}
+	platform::editor_clear_transform();
+}
+
+static void on_transform_changed(vec3 pos, vec3 rot, vec3 scale) {
+	if (selected_entity == ecs::INVALID_ENTITY) return;
+	ecs::Transform* t = ecs::store_get(&world.transforms, selected_entity);
+	if (!t) return;
+	t->position = pos;
+	t->rotation = rot;
+	t->scale = scale;
+}
+
 static void on_asset_double_click(const char* path) {
 	i32 id = asset::load(path);
 	if (id < 0) return;
@@ -160,6 +182,8 @@ static void on_menu(int action) {
 	} else if (action == platform::MENU_FILE_LOAD) {
 		char path[256];
 		if (platform::editor_open_file_dialog(path, sizeof(path))) {
+			selected_entity = ecs::INVALID_ENTITY;
+			platform::editor_clear_transform();
 			scene::unload(&current_scene, &world);
 			asset::shutdown();
 			scene::load(&current_scene, path, &world);
@@ -182,6 +206,8 @@ bool init() {
 	platform::editor_set_menu_callback(on_menu);
 	platform::editor_set_asset_callback(on_asset_double_click);
 	platform::editor_set_parent_callback(on_parent);
+	platform::editor_set_entity_callback(on_entity_selected);
+	platform::editor_set_transform_callback(on_transform_changed);
 
 	u32 w, h;
 	platform::get_paint_field_size(&w, &h);

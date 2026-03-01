@@ -1,5 +1,6 @@
 #pragma once
 #include "../core/types.hpp"
+#include "../core/math.hpp"
 #include "../core/file.hpp"
 #include "../ecs/ecs.hpp"
 
@@ -49,6 +50,10 @@ namespace platform {
     void editor_set_entity_entries(const arr::Array<EntityEntry>* entries);
     void editor_set_entity_callback(void (*callback)(ecs::Entity e));
     void editor_set_parent_callback(void (*callback)(ecs::Entity child, ecs::Entity parent));
+
+    void editor_set_transform(vec3 pos, vec3 rot, vec3 scale);
+    void editor_clear_transform();
+    void editor_set_transform_callback(void (*callback)(vec3 pos, vec3 rot, vec3 scale));
 
     constexpr int MENU_FILE_SAVE    = 40001;
     constexpr int MENU_FILE_SAVE_AS = 40002;

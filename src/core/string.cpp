@@ -1,4 +1,5 @@
 #include "string.hpp"
+#include <math.h>
 
 extern "C" __declspec(dllimport) int __cdecl wvsprintfA(char* buffer, const char* format, va_list args);
 
@@ -139,6 +140,54 @@ namespace str {
 		}
 
 		return result;
+
+	}
+
+	int float_to_str(char* buf, usize max, f32 value) {
+
+		if (!buf || max == 0) return 0;
+
+		bool neg = value < 0.0f;
+		if (neg) value = -value;
+
+		i32 integer = (i32)value;
+		i32 frac = (i32)(((f64)value - (f64)integer) * 100.0 + 0.5);
+		if (frac >= 100) { integer++; frac = 0; }
+
+		if (neg)
+			return format(buf, max, "-%d.%02d", integer, frac);
+		else
+			return format(buf, max, "%d.%02d", integer, frac);
+
+	}
+
+	f32 str_to_float(const char* s) {
+
+		if (!s) return 0.0f;
+		while (*s == ' ' || *s == '\t') s++;
+		if (*s == '\0') return 0.0f;
+
+		f32 sign = 1.0f;
+		if (*s == '-') { sign = -1.0f; s++; }
+		else if (*s == '+') { s++; }
+
+		f32 result = 0.0f;
+		while (*s >= '0' && *s <= '9') {
+			result = result * 10.0f + (f32)(*s - '0');
+			s++;
+		}
+
+		if (*s == '.') {
+			s++;
+			f32 frac = 0.1f;
+			while (*s >= '0' && *s <= '9') {
+				result += (f32)(*s - '0') * frac;
+				frac *= 0.1f;
+				s++;
+			}
+		}
+
+		return sign * result;
 
 	}
 
