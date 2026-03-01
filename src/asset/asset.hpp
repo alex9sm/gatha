@@ -2,18 +2,19 @@
 
 #include "../core/types.hpp"
 #include "../core/math.hpp"
-#include "../renderer/opengl/mesh.hpp"
 
 namespace asset {
 
 	struct Asset {
-		char          name[64];
-		char          path[256];
-		opengl::Mesh  mesh;
-		opengl::GLuint texture;
-		AABB          bounds;
-		u32           vertex_count;
-		u32           index_count;
+		char  name[64];
+		char  path[256];
+		u32   vao;
+		u32   vbo;
+		u32   ibo;
+		u32   texture;
+		AABB  bounds;
+		u32   vertex_count;
+		u32   index_count;
 	};
 
 	i32   load(const char* filepath);

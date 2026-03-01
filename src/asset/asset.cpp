@@ -4,11 +4,9 @@
 
 #include "asset.hpp"
 #include "../core/log.hpp"
-#include "../core/math.hpp"
 #include "../core/memory.hpp"
 #include "../core/string.hpp"
 #include "../core/array.hpp"
-#include "../renderer/opengl/vertex.hpp"
 #include "../renderer/opengl/mesh.hpp"
 #include "../renderer/opengl/texture.hpp"
 
@@ -273,7 +271,9 @@ namespace asset {
 		Asset asset = {};
 		extract_name(filepath, asset.name, sizeof(asset.name));
 		str::copy(asset.path, filepath, sizeof(asset.path));
-		asset.mesh = gpu_mesh;
+		asset.vao = gpu_mesh.vao;
+		asset.vbo = gpu_mesh.vbo;
+		asset.ibo = gpu_mesh.ibo;
 		asset.texture = texture;
 		asset.bounds = { bounds_min, bounds_max };
 		asset.vertex_count = (u32)vertices.count;
@@ -311,7 +311,8 @@ namespace asset {
 
 	void shutdown() {
 		for (usize i = 0; i < registry.count; i++) {
-			opengl::mesh_destroy(&registry.data[i].mesh);
+			opengl::Mesh m = { registry.data[i].vao, registry.data[i].vbo, registry.data[i].ibo, registry.data[i].index_count };
+			opengl::mesh_destroy(&m);
 			opengl::texture_destroy(registry.data[i].texture);
 		}
 		arr::array_destroy(&registry);

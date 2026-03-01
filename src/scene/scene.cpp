@@ -1,12 +1,21 @@
 #include "scene.hpp"
 #include "json.hpp"
+#include "../ecs/world.hpp"
 #include "../core/log.hpp"
 #include "../core/file.hpp"
 #include "../core/memory.hpp"
 #include "../core/string.hpp"
-#include "../core/math.hpp"
 #include "../asset/asset.hpp"
 #include "../ecs/components.hpp"
+
+static vec3 json_to_vec3(const json::Value* arr, vec3 fallback = {0, 0, 0}) {
+	if (!arr || arr->type != json::ARRAY || json::length(arr) < 3) return fallback;
+	return {
+		(f32)json::as_number(json::at(arr, 0)),
+		(f32)json::as_number(json::at(arr, 1)),
+		(f32)json::as_number(json::at(arr, 2))
+	};
+}
 
 namespace scene {
 
@@ -99,9 +108,9 @@ namespace scene {
 			json::Value* t = json::get(ent_json, "transform");
 			if (t) {
 				ecs::Transform transform = {};
-				transform.position = json::to_vec3(json::get(t, "position"));
-				transform.rotation = json::to_vec3(json::get(t, "rotation"));
-				transform.scale    = json::to_vec3(json::get(t, "scale"), {1, 1, 1});
+				transform.position = json_to_vec3(json::get(t, "position"));
+				transform.rotation = json_to_vec3(json::get(t, "rotation"));
+				transform.scale    = json_to_vec3(json::get(t, "scale"), {1, 1, 1});
 				transform.local_to_world = mat4_identity();
 				ecs::store_add(&world->transforms, e, transform);
 			}

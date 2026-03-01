@@ -1,7 +1,6 @@
 #pragma once
 
 #include "../core/types.hpp"
-#include "../core/math.hpp"
 
 namespace json {
 
@@ -28,7 +27,5 @@ namespace json {
 	f64         as_number(const Value* v, f64 fallback = 0.0);
 	const char* as_string(const Value* v, const char* fallback = "");
 	bool        as_bool(const Value* v, bool fallback = false);
-
-	vec3 to_vec3(const Value* arr, vec3 fallback = {0, 0, 0});
 
 }

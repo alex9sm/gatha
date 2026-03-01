@@ -3,7 +3,8 @@
 #include "../core/types.hpp"
 #include "../core/array.hpp"
 #include "../ecs/ecs.hpp"
-#include "../ecs/world.hpp"
+
+namespace ecs { struct World; }
 
 namespace scene {
 

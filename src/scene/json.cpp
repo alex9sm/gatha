@@ -302,13 +302,4 @@ namespace json {
 		return v->boolean;
 	}
 
-	vec3 to_vec3(const Value* arr, vec3 fallback) {
-		if (!arr || arr->type != ARRAY || arr->array.count < 3) return fallback;
-		return {
-			(f32)as_number(arr->array.items[0]),
-			(f32)as_number(arr->array.items[1]),
-			(f32)as_number(arr->array.items[2])
-		};
-	}
-
 }

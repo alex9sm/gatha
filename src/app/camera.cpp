@@ -1,5 +1,4 @@
 #include "camera.hpp"
-#include "../core/math.hpp"
 #include "../platform/platform.hpp"
 
 void camera_init(Camera* cam, vec3 pos, f32 speed, f32 sensitivity) {

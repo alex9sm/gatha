@@ -1,8 +1,5 @@
 #include "gatha.hpp"
 #include "camera.hpp"
-#include "../core/types.hpp"
-#include "../core/math.hpp"
-#include "../core/memory.hpp"
 #include "../core/string.hpp"
 #include "../core/log.hpp"
 #include "../renderer/renderer.hpp"
@@ -108,7 +105,7 @@ static void on_parent(ecs::Entity child, ecs::Entity parent) {
 	ecs::HierarchyNode* hn = ecs::store_get(&world.hierarchy, child);
 	if (!hn) return;
 
-	// Check depth won't exceed 8
+	// check depth won't exceed 8
 	u32 parent_depth = 0;
 	ecs::Entity cur = parent;
 	while (cur != ecs::INVALID_ENTITY && parent_depth < 8) {
@@ -369,9 +366,9 @@ void render() {
 		opengl::GLuint tex = a->texture ? a->texture : fallback_texture;
 		opengl::glBindTextureUnit(0, tex);
 		opengl::glUniform1ui(offset_loc, batches.data[b].offset);
-		opengl::glBindVertexArray(a->mesh.vao);
+		opengl::glBindVertexArray(a->vao);
 		opengl::glDrawElementsInstanced(opengl::GL_TRIANGLES,
-			a->mesh.index_count, opengl::GL_UNSIGNED_INT,
+			a->index_count, opengl::GL_UNSIGNED_INT,
 			nullptr, batches.data[b].count);
 	}
 
